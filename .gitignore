@@ -1,0 +1,9 @@
+node_modules
+.codex
+.idea
+.expo
+.env
+
+
+.DS_Store
+.vercel
