@@ -4,8 +4,10 @@ import type { MeetingSummary } from '../../meetings/models/meetingSummary';
 import { API_BASE_URL } from '../../../utils/api';
 
 const getErrorMessage = (payload: unknown, fallback: string): string => {
-  if (payload && typeof payload === 'object' && 'message' in payload && typeof (payload as Record<string, unknown>).message === 'string') {
-    return (payload as Record<string, string>).message;
+  if (payload && typeof payload === 'object') {
+    const obj = payload as Record<string, unknown>;
+    if (typeof obj.error === 'string') return obj.error;
+    if (typeof obj.message === 'string') return obj.message;
   }
   return fallback;
 };
@@ -15,9 +17,14 @@ export const aiService = {
     const formData = new FormData();
 
     if (Platform.OS === 'web') {
-      const blob = await audioRecordingService.getWebRecordingBlob(audioUri);
+      let blob: Blob | null = null;
+      try {
+        blob = await audioRecordingService.getWebRecordingBlob(audioUri);
+      } catch {
+        throw new Error('خطا در بازیابی فایل صوتی. لطفا دوباره ضبط کنید.');
+      }
       if (!blob) {
-        throw new Error('فایل صوتی پیدا نشد.');
+        throw new Error('فایل صوتی پیدا نشد. لطفا دوباره ضبط کنید.');
       }
       formData.append('audio', blob, 'recording.webm');
     } else {
@@ -30,25 +37,38 @@ export const aiService = {
 
     formData.append('meetingId', meetingId);
 
-    const response = await fetch(`${API_BASE_URL}/api/process-recording`, {
-      method: 'POST',
-      body: formData,
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 300000);
 
-    const data = await response.json();
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/process-recording`, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      throw new Error(getErrorMessage(data, 'پردازش هوش مصنوعی انجام نشد.'));
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(getErrorMessage(data, 'پردازش هوش مصنوعی انجام نشد.'));
+      }
+
+      return {
+        id: data.id,
+        meetingId: data.meetingId,
+        transcript: data.transcript || '',
+        summary: data.summary || '',
+        keyPoints: data.keyPoints || [],
+        actionItems: data.actionItems || [],
+        createdAt: data.createdAt,
+      };
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new Error('درخواست پردازش بیش از حد طول کشید. لطفا دوباره تلاش کنید.');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    return {
-      id: data.id,
-      meetingId: data.meetingId,
-      transcript: data.transcript || '',
-      summary: data.summary || '',
-      keyPoints: data.keyPoints || [],
-      actionItems: data.actionItems || [],
-      createdAt: data.createdAt,
-    };
   },
 };

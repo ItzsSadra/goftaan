@@ -6,8 +6,10 @@ const summariesEndpoint = `${API_BASE_URL}/summaries`;
 // --- Helper Functions ---
 
 const getErrorMessage = (payload: unknown, fallback: string): string => {
-  if (payload && typeof payload === 'object' && 'message' in payload && typeof payload.message === 'string') {
-    return payload.message as string;
+  if (payload && typeof payload === 'object') {
+    const obj = payload as Record<string, unknown>;
+    if (typeof obj.error === 'string') return obj.error;
+    if (typeof obj.message === 'string') return obj.message;
   }
   return fallback;
 };

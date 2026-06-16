@@ -1,64 +1,366 @@
-import uuid
-from flask import Flask, request, jsonify
-import psycopg2
+import json
 import os
+import re
+import subprocess
+import uuid
+from datetime import datetime, timezone
+
+import psycopg2
+import speech_recognition as sr
 from dotenv import load_dotenv
+from flask import Flask, jsonify, request
 from flask_cors import CORS
+from openai import OpenAI
+from psycopg2.extras import RealDictCursor
 
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}}) 
+CORS(app, resources={r"/api/*": {"origins": "*"}, r"/summaries/*": {"origins": "*"}})
 
-# --- Database Connection ---
-def get_db_connection():
-    try:
-        conn = psycopg2.connect("postgresql://postgres:BzxQWT9EcsLyl6Zn@services.irn5.chabokan.net:25598/deborah")
-        return conn
-    except Exception as e:
-        print(f"Database connection error: {e}")
-        return None
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:BzxQWT9EcsLyl6Zn@services.irn5.chabokan.net:25598/deborah",
+)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+UPLOAD_FOLDER = "/tmp/audio_uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# --- Helper function to normalize email ---
+
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
+def get_db():
+    """Return a database connection with RealDictCursor."""
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+
+
+def init_db():
+    """Create tables if they don't exist."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS summaries (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            meeting_id TEXT NOT NULL,
+            transcript TEXT DEFAULT '',
+            summary TEXT DEFAULT '',
+            key_points TEXT[] DEFAULT '{}',
+            action_items TEXT[] DEFAULT '{}',
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    # Migrate legacy meeting_id columns to TEXT (was UUID or INTEGER in older schemas)
+    cur.execute(
+        "SELECT data_type FROM information_schema.columns "
+        "WHERE table_name='summaries' AND column_name='meeting_id'"
+    )
+    row = cur.fetchone()
+    if row and row["data_type"] in ("uuid", "integer", "bigint"):
+        cur.execute("ALTER TABLE summaries ALTER COLUMN meeting_id DROP NOT NULL")
+        cur.execute(
+            "ALTER TABLE summaries ALTER COLUMN meeting_id TYPE TEXT USING meeting_id::TEXT"
+        )
+        cur.execute("ALTER TABLE summaries ALTER COLUMN meeting_id SET NOT NULL")
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 def normalize_email(email):
     if email:
         return email.strip().lower()
     return None
 
-# --- API Endpoint for Login ---
-@app.route('/api/users/login', methods=['POST'])
+
+def format_iso_utc(dt):
+    if dt:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
+    return None
+
+
+def format_summary_row(d):
+    """Convert a summary row (RealDictRow) to a consistent JSON structure."""
+    result = dict(d)
+    if result.get("created_at") and hasattr(result["created_at"], "isoformat"):
+        result["created_at"] = result["created_at"].isoformat().replace("+00:00", "Z")
+    return {
+        "id": str(result["id"]),
+        "meetingId": str(result["meeting_id"]),
+        "transcript": result.get("transcript", ""),
+        "summary": result.get("summary", ""),
+        "keyPoints": result.get("key_points", []),
+        "actionItems": result.get("action_items", []),
+        "createdAt": result.get("created_at"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# AI helper functions
+# ---------------------------------------------------------------------------
+def transcribe_audio(audio_path: str) -> str:
+    # Convert WebM/Opus (from browser) to WAV since sr.AudioFile doesn't support it
+    ext = audio_path.rsplit(".", 1)[-1].lower()
+    wav_path = None
+    if ext not in ("wav", "aiff", "aifc", "flac"):
+        wav_path = audio_path.rsplit(".", 1)[0] + ".wav"
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    audio_path,
+                    "-acodec",
+                    "pcm_s16le",
+                    "-ar",
+                    "16000",
+                    "-ac",
+                    "1",
+                    wav_path,
+                ],
+                capture_output=True,
+                check=True,
+                timeout=60,
+            )
+            audio_path = wav_path
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            raise ValueError(
+                "فرمت فایل صوتی پشتیبانی نمی‌شود. لطفا فایل را به WAV تبدیل کنید."
+            ) from e
+
+    recognizer = sr.Recognizer()
+    try:
+        with sr.AudioFile(audio_path) as source:
+            audio = recognizer.record(source)
+    finally:
+        if wav_path and os.path.exists(wav_path):
+            try:
+                os.remove(wav_path)
+            except Exception:
+                pass
+
+    try:
+        text = recognizer.recognize_google(audio, language="fa-IR")
+        if not text or not text.strip():
+            raise ValueError("متن خالی از سرویس گفتار به متن دریافت شد.")
+        return text
+    except sr.UnknownValueError:
+        raise ValueError("تشخیص گفتار نتوانست صدا را درک کند. لطفا واضح‌تر صحبت کنید.")
+    except sr.RequestError as e:
+        raise ValueError(f"خطا در ارتباط با سرویس تشخیص گفتار گوگل: {e}")
+
+
+def _extract_json(raw: str) -> dict | None:
+    """Try to extract a JSON object from a string using multiple strategies."""
+    if not raw or not raw.strip():
+        return None
+
+    # Strategy 1: Direct parse
+    text = raw.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 2: Remove markdown code fences before parsing
+    for prefix in ("```json", "```JSON", "```"):
+        if prefix in text:
+            parts = text.split(prefix)
+            if len(parts) > 1:
+                inner = parts[1]
+                if "```" in inner:
+                    inner = inner.split("```")[0]
+                text = inner.strip()
+                try:
+                    return json.loads(text)
+                except json.JSONDecodeError:
+                    pass
+
+    # Strategy 3: Find the outermost JSON object via regex
+    brace_match = re.search(r"\{", raw)
+    if brace_match:
+        depth = 0
+        start = brace_match.start()
+        for i in range(start, len(raw)):
+            ch = raw[i]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = raw[start : i + 1]
+                    try:
+                        return json.loads(candidate)
+                    except json.JSONDecodeError:
+                        pass
+                    break
+
+    # Strategy 4: Find outermost JSON array via regex
+    bracket_match = re.search(r"\[", raw)
+    if bracket_match:
+        depth = 0
+        start = bracket_match.start()
+        for i in range(start, len(raw)):
+            ch = raw[i]
+            if ch == "[":
+                depth += 1
+            elif ch == "]":
+                depth -= 1
+                if depth == 0:
+                    candidate = raw[start : i + 1]
+                    try:
+                        return json.loads(candidate)
+                    except json.JSONDecodeError:
+                        pass
+                    break
+
+    return None
+
+
+def summarize_text(transcript: str) -> dict:
+    if not OPENROUTER_API_KEY:
+        raise ValueError("OPENROUTER_API_KEY is not configured")
+
+    if not transcript or not transcript.strip():
+        return {
+            "summary": "متن پیاده‌سازی شده خالی است. لطفا دوباره ضبط کنید.",
+            "keyPoints": [],
+            "actionItems": [],
+        }
+
+    client = OpenAI(
+        base_url=OPENROUTER_BASE_URL,
+        api_key=OPENROUTER_API_KEY,
+        timeout=180,
+    )
+
+    prompt = f"""You are a professional meeting assistant. Given the following meeting transcript in Persian, provide a structured analysis.
+
+Transcript:
+{transcript}
+
+Respond ONLY with valid JSON. No markdown, no explanations, no code fences. Just the JSON object:
+{{"summary": "یک خلاصه ۲-۳ پاراگرافی به فارسی از متن جلسه", "keyPoints": ["نکته کلیدی ۱ به فارسی", "نکته کلیدی ۲ به فارسی"], "actionItems": ["اقدام ۱ به فارسی", "اقدام ۲ به فارسی"]}}"""
+
+    models_to_try = [OPENROUTER_MODEL]
+    # Fallback to a reliable model if the configured one is different
+    if OPENROUTER_MODEL != "openai/gpt-4o-mini":
+        models_to_try.append("openai/gpt-4o-mini")
+    models_to_try.append("google/gemini-2.0-flash-exp:free")
+
+    last_error = None
+    content = None
+
+    for model in models_to_try:
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                timeout=180,
+            )
+            content = response.choices[0].message.content
+            if content and content.strip():
+                print(f"[summarize_text] Success with model: {model}")
+                break
+        except Exception as e:
+            print(f"[summarize_text] Model {model} failed: {e}")
+            last_error = e
+            continue
+
+    if content is None:
+        raise ValueError(f"خطا در ارتباط با OpenRouter: {last_error or 'همه مدل‌ها ناموفق بودند'}")
+
+    if not content or not content.strip():
+        return {
+            "summary": "مدل هوش مصنوعی پاسخی ارائه نداد.",
+            "keyPoints": [],
+            "actionItems": [],
+        }
+
+    parsed = _extract_json(content)
+    if parsed and isinstance(parsed, dict):
+        return {
+            "summary": parsed.get("summary", ""),
+            "keyPoints": parsed.get("keyPoints", [])
+            if isinstance(parsed.get("keyPoints"), list)
+            else [],
+            "actionItems": parsed.get("actionItems", [])
+            if isinstance(parsed.get("actionItems"), list)
+            else [],
+        }
+
+    # If we got here and parsed is a list, try to use the first item
+    if isinstance(parsed, list) and len(parsed) > 0:
+        item = parsed[0]
+        if isinstance(item, dict):
+            return {
+                "summary": item.get("summary", ""),
+                "keyPoints": item.get("keyPoints", [])
+                if isinstance(item.get("keyPoints"), list)
+                else [],
+                "actionItems": item.get("actionItems", [])
+                if isinstance(item.get("actionItems"), list)
+                else [],
+            }
+
+    # Final fallback: return raw content as summary
+    return {
+        "summary": content.strip(),
+        "keyPoints": [],
+        "actionItems": [],
+    }
+
+
+# =============================================================================
+# AUTH / USER ROUTES
+# =============================================================================
+
+
+@app.route("/api/users/login", methods=["POST"])
 def login_user():
     data = request.get_json()
-    if not data or not data.get('email') or not data.get('password'):
+    if not data or not data.get("email") or not data.get("password"):
         return jsonify({"error": "Email and password are required"}), 400
 
-    email = data['email']
-    password = data['password']
+    email = data["email"]
+    password = data["password"]
     normalized_email = normalize_email(email)
 
     if not normalized_email:
         return jsonify({"error": "Invalid email format"}), 400
 
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Database connection failed"}), 500
-
-    user_data = None
+    conn = get_db()
     try:
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT id, name, email, password FROM users WHERE email = %s AND password = %s LIMIT 1",
-                (normalized_email, password)
+                (normalized_email, password),
             )
             user_row = cur.fetchone()
 
             if user_row:
-                user_data = {
-                    "id": user_row[0],
-                    "name": user_row[1],
-                    "email": user_row[2],
-                    "password": user_row[3]
-                }
+                return jsonify(
+                    {
+                        "id": user_row["id"],
+                        "name": user_row["name"],
+                        "email": user_row["email"],
+                        "password": user_row["password"],
+                    }
+                ), 200
+            else:
+                return jsonify({"message": "ایمیل یا رمز عبور اشتباه است."}), 400
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
         return jsonify({"error": "An error occurred while querying the database"}), 500
@@ -66,64 +368,54 @@ def login_user():
         if conn:
             conn.close()
 
-    if user_data:
-        return jsonify(user_data), 200
-    else:
-        return jsonify({"message": "ایمیل یا رمز عبور اشتباه است."}), 400
 
-# --- API Endpoint for Sign Up ---
-@app.route('/api/users/signup', methods=['POST'])
+@app.route("/api/users/signup", methods=["POST"])
 def signup_user():
     data = request.get_json()
-    if not data or not data.get('name') or not data.get('email') or not data.get('password'):
+    if (
+        not data
+        or not data.get("name")
+        or not data.get("email")
+        or not data.get("password")
+    ):
         return jsonify({"error": "Name, email, and password are required"}), 400
 
-    name = data['name']
-    email = data['email']
-    password = data['password']
+    name = data["name"]
+    email = data["email"]
+    password = data["password"]
     normalized_email = normalize_email(email)
 
     if not normalized_email:
         return jsonify({"error": "Invalid email format"}), 400
 
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Database connection failed"}), 500
-
-    created_user_id = None
+    conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id FROM users WHERE email = %s LIMIT 1", (normalized_email,))
-            existing_user = cur.fetchone()
-
-            if existing_user:
+            cur.execute(
+                "SELECT id FROM users WHERE email = %s LIMIT 1", (normalized_email,)
+            )
+            if cur.fetchone():
                 return jsonify({"message": "این ایمیل قبلا ثبت شده است."}), 409
 
             cur.execute(
-                "INSERT INTO users (name, email, password) VALUES (%s, %s, %s) RETURNING id",
-                (name, normalized_email, password)
+                "INSERT INTO users (name, email, password) VALUES (%s, %s, %s) RETURNING id, name, email",
+                (name, normalized_email, password),
             )
-            created_user_id = cur.fetchone()[0]
+            new_user = cur.fetchone()
+            conn.commit()
 
-        conn.commit()
-
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, name, email FROM users WHERE id = %s",
-                (created_user_id,)
-            )
-            new_user_row = cur.fetchone()
-
-            if new_user_row:
-                return jsonify({
-                    "id": new_user_row[0],
-                    "name": new_user_row[1],
-                    "email": new_user_row[2]
-                }), 201
-
+            if new_user:
+                return jsonify(
+                    {
+                        "id": new_user["id"],
+                        "name": new_user["name"],
+                        "email": new_user["email"],
+                    }
+                ), 201
             else:
-                return jsonify({"error": "Failed to retrieve newly created user data"}), 500
-
+                return jsonify(
+                    {"error": "Failed to retrieve newly created user data"}
+                ), 500
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
         conn.rollback()
@@ -132,74 +424,66 @@ def signup_user():
         if conn:
             conn.close()
 
-@app.route('/api/users/<string:user_id>', methods=['PUT', 'OPTIONS'])
+
+@app.route("/api/users/<string:user_id>", methods=["PUT", "OPTIONS"])
 def update_user_profile(user_id):
-    if request.method == 'OPTIONS':
-        return '', 204 # No Content
+    if request.method == "OPTIONS":
+        # CORS preflight handled by Flask-CORS, but we keep a no-op for safety
+        return "", 204
 
     data = request.get_json()
-    if not data or not data.get('name') or not data.get('email'):
+    if not data or not data.get("name") or not data.get("email"):
         return jsonify({"error": "Name and email are required for profile update"}), 400
 
-    name = data['name']
-    email = data['email']
+    name = data["name"]
+    email = data["email"]
     normalized_email = normalize_email(email)
 
     if not normalized_email:
         return jsonify({"error": "Invalid email format"}), 400
 
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Database connection failed"}), 500
-
+    conn = get_db()
     try:
         with conn.cursor() as cur:
-            # Convert the incoming user_id string to a UUID object for validation
+            # Validate UUID format
             try:
-                user_uuid_obj = uuid.UUID(user_id)
-                # Convert the UUID object to a string for the database query
-                user_id_str = str(user_uuid_obj)
+                uuid.UUID(user_id)
             except ValueError:
                 return jsonify({"error": "Invalid user ID format"}), 400
 
-            # 1. Check if the user exists
-            # Pass the STRING representation of the UUID to the query
-            cur.execute("SELECT id, name, email FROM users WHERE id = %s LIMIT 1", (user_id_str,))
+            cur.execute(
+                "SELECT id, name, email FROM users WHERE id = %s LIMIT 1", (user_id,)
+            )
             existing_user = cur.fetchone()
 
             if not existing_user:
                 return jsonify({"error": "User not found"}), 404
 
-            # 2. Check if the new email is already used by another user
-            # existing_user[2] is the email, existing_user[0] is the id (which is a UUID object from fetchone)
-            if existing_user[2] != normalized_email:
-                # Pass the STRING representation of the UUID for the current user's ID
-                cur.execute("SELECT id FROM users WHERE email = %s AND id != %s LIMIT 1", (normalized_email, user_id_str))
-                email_conflict_user = cur.fetchone()
-                if email_conflict_user:
-                    return jsonify({"message": "این ایمیل قبلا ثبت شده است."}), 409 # Conflict
+            if existing_user["email"] != normalized_email:
+                cur.execute(
+                    "SELECT id FROM users WHERE email = %s AND id != %s LIMIT 1",
+                    (normalized_email, user_id),
+                )
+                if cur.fetchone():
+                    return jsonify({"message": "این ایمیل قبلا ثبت شده است."}), 409
 
-            # 3. Update the user profile
-            # Pass the STRING representation of the UUID for the WHERE clause
             cur.execute(
                 "UPDATE users SET name = %s, email = %s WHERE id = %s RETURNING id, name, email",
-                (name, normalized_email, user_id_str)
+                (name, normalized_email, user_id),
             )
-            updated_user_row = cur.fetchone()
+            updated_user = cur.fetchone()
+            conn.commit()
 
-            if not updated_user_row:
+            if updated_user:
+                return jsonify(
+                    {
+                        "id": updated_user["id"],
+                        "name": updated_user["name"],
+                        "email": updated_user["email"],
+                    }
+                ), 200
+            else:
                 return jsonify({"error": "Failed to update user profile"}), 500
-
-            conn.commit() # Commit the transaction
-
-            # Return the updated user's details
-            # Ensure the ID is returned as a string
-            return jsonify({
-                "id": str(updated_user_row[0]), # updated_user_row[0] is likely a UUID object from RETURNING
-                "name": updated_user_row[1],
-                "email": updated_user_row[2]
-            }), 200 # OK status code
-
     except (Exception, psycopg2.DatabaseError) as error:
         print(f"Database error: {error}")
         conn.rollback()
@@ -215,46 +499,41 @@ def change_password():
     user_id = data.get("user_id")
     current_password = data.get("current_password")
     new_password = data.get("new_password")
-    conn = get_db_connection()
 
     if not user_id or not current_password or not new_password:
         return jsonify({"message": "رمز فعلی و رمز جدید الزامی است."}), 400
 
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id FROM users WHERE id=%s AND password=%s LIMIT 1;",
-        (user_id, current_password)
-    )
-    user = cur.fetchone()
-
-    if not user:
-        return jsonify({"message": "رمز عبور فعلی اشتباه است."}), 400
-
+    conn = get_db()
     try:
-        cur.execute(
-            "UPDATE users SET password=%s WHERE id=%s;",
-            (new_password, user_id)
-        )
-        conn.commit()
-        return jsonify({"message": "تغییر رمز عبور با موفقیت انجام شد."}), 200
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM users WHERE id = %s AND password = %s LIMIT 1",
+                (user_id, current_password),
+            )
+            if not cur.fetchone():
+                return jsonify({"message": "رمز عبور فعلی اشتباه است."}), 400
+
+            cur.execute(
+                "UPDATE users SET password = %s WHERE id = %s", (new_password, user_id)
+            )
+            conn.commit()
+            return jsonify({"message": "تغییر رمز عبور با موفقیت انجام شد."}), 200
     except Exception as e:
         conn.rollback()
         return jsonify({"message": "تغییر رمز عبور انجام نشد.", "error": str(e)}), 500
     finally:
-        cur.close()
+        if conn:
+            conn.close()
 
 
-@app.route("/api/users/<int:user_id>", methods=["DELETE"])
+@app.route("/api/users/<user_id>", methods=["DELETE"])
 def delete_account(user_id):
-    conn = get_db_connection()
+    conn = get_db()
     try:
-        cur = conn.cursor()
-        # Delete related meetings first
-        cur.execute("DELETE FROM meetings WHERE user_id=%s;", (user_id,))
-        # Delete the user
-        cur.execute("DELETE FROM users WHERE id=%s;", (user_id,))
-        conn.commit()
-        cur.close()
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM meetings WHERE user_id = %s", (user_id,))
+            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            conn.commit()
         return jsonify({"message": "حساب کاربری حذف شد."}), 200
     except Exception as e:
         conn.rollback()
@@ -263,5 +542,350 @@ def delete_account(user_id):
         if conn:
             conn.close()
 
-if __name__ == '__main__':
+
+# =============================================================================
+# MEETING ROUTES
+# =============================================================================
+
+
+@app.route("/api/meetings", methods=["GET"])
+def get_meetings():
+    user_id = request.args.get("user_id")
+    upcoming = request.args.get("upcoming", "false").lower() == "true"
+
+    if not user_id:
+        return jsonify({"message": "user_id is required"}), 400
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        query = """
+            SELECT id, user_id, title, location, notes, start_at, end_at
+            FROM meetings
+            WHERE user_id = %s
+        """
+        params = [user_id]
+
+        if upcoming:
+            query += " AND end_at >= %s"
+            params.append(datetime.now(timezone.utc))
+
+        query += " ORDER BY start_at ASC"
+        cur.execute(query, params)
+        rows = cur.fetchall()
+
+        formatted_rows = []
+        for row in rows:
+            d = dict(row)
+            d["start_at"] = format_iso_utc(d.get("start_at"))
+            d["end_at"] = format_iso_utc(d.get("end_at"))
+            formatted_rows.append(d)
+
+        return jsonify(formatted_rows), 200
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(f"Database error in get_meetings: {error}")
+        return jsonify({"message": "An error occurred while fetching meetings."}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route("/api/meetings", methods=["POST"])
+def add_meeting():
+    data = request.get_json()
+    required = ["user_id", "title", "start_at", "end_at"]
+
+    if not all(field in data for field in required):
+        return jsonify({"message": "Missing required fields"}), 400
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        try:
+            start_at_dt = datetime.fromisoformat(
+                data["start_at"].replace("Z", "+00:00")
+            )
+            end_at_dt = datetime.fromisoformat(data["end_at"].replace("Z", "+00:00"))
+
+            if start_at_dt.tzinfo is None:
+                start_at_dt = start_at_dt.replace(tzinfo=timezone.utc)
+            if end_at_dt.tzinfo is None:
+                end_at_dt = end_at_dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return jsonify(
+                {"message": "Invalid date format. Use ISO 8601 format."}
+            ), 400
+
+        cur.execute(
+            """
+            INSERT INTO meetings (user_id, title, location, notes, start_at, end_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, user_id, title, location, notes, start_at, end_at
+            """,
+            (
+                data["user_id"],
+                data["title"].strip(),
+                data.get("location"),
+                data.get("notes"),
+                start_at_dt,
+                end_at_dt,
+            ),
+        )
+        row = cur.fetchone()
+        conn.commit()
+
+        if row:
+            formatted_row = dict(row)
+            formatted_row["start_at"] = format_iso_utc(formatted_row.get("start_at"))
+            formatted_row["end_at"] = format_iso_utc(formatted_row.get("end_at"))
+            return jsonify(formatted_row), 201
+        else:
+            return jsonify(
+                {"message": "Meeting was added, but could not retrieve its details."}
+            ), 500
+    except (Exception, psycopg2.DatabaseError) as error:
+        if conn:
+            conn.rollback()
+        print(f"Database error in add_meeting: {error}")
+        return jsonify(
+            {"message": f"An error occurred while adding the meeting: {error}"}
+        ), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route("/api/meetings/<meeting_id>", methods=["DELETE"])
+def delete_meeting(meeting_id):
+    conn = None
+    cur = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM meetings WHERE id = %s RETURNING id", (meeting_id,))
+        deleted = cur.fetchone()
+        conn.commit()
+
+        if not deleted:
+            return jsonify({"message": "Meeting not found"}), 404
+
+        return jsonify({"message": "Meeting deleted"}), 200
+    except (Exception, psycopg2.DatabaseError) as error:
+        if conn:
+            conn.rollback()
+        print(f"Database error in delete_meeting: {error}")
+        return jsonify(
+            {"message": f"An error occurred while deleting the meeting: {error}"}
+        ), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+# =============================================================================
+# AI / SUMMARIES ROUTES
+# =============================================================================
+
+
+@app.route("/api/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"}), 200
+
+
+@app.route("/api/transcribe", methods=["POST"])
+def transcribe():
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
+
+    audio_file = request.files["audio"]
+    ext = (
+        audio_file.filename.rsplit(".", 1)[-1] if "." in audio_file.filename else "webm"
+    )
+    filepath = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}.{ext}")
+    audio_file.save(filepath)
+
+    try:
+        transcript = transcribe_audio(filepath)
+        return jsonify({"transcript": transcript}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Transcription failed: {str(e)}"}), 500
+    finally:
+        try:
+            os.remove(filepath)
+        except Exception:
+            pass
+
+
+@app.route("/api/summarize", methods=["POST"])
+def summarize():
+    data = request.get_json()
+    if not data or not data.get("transcript"):
+        return jsonify({"error": "No transcript provided"}), 400
+
+    try:
+        result = summarize_text(data["transcript"])
+        return jsonify(result), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Summarization failed: {str(e)}"}), 500
+
+
+@app.route("/api/process-recording", methods=["POST"])
+def process_recording():
+    meeting_id = request.form.get("meetingId")
+    if not meeting_id:
+        return jsonify({"error": "No meetingId provided"}), 400
+
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
+
+    audio_file = request.files["audio"]
+    ext = (
+        audio_file.filename.rsplit(".", 1)[-1] if "." in audio_file.filename else "webm"
+    )
+    filepath = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}.{ext}")
+    audio_file.save(filepath)
+
+    print(f"[process-recording] Meeting={meeting_id}, Audio saved to={filepath}")
+
+    try:
+        transcript = transcribe_audio(filepath)
+        print(f"[process-recording] Transcription length={len(transcript)}")
+
+        summary_result = summarize_text(transcript)
+        print(
+            f"[process-recording] Summary obtained, has_summary={bool(summary_result.get('summary'))}"
+        )
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO summaries (meeting_id, transcript, summary, key_points, action_items)
+               VALUES (%s, %s, %s, %s, %s)
+               RETURNING id, meeting_id, transcript, summary, key_points, action_items, created_at""",
+            (
+                meeting_id,
+                transcript,
+                summary_result["summary"],
+                summary_result["keyPoints"],
+                summary_result["actionItems"],
+            ),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        print(f"[process-recording] Saved to DB, summary_id={row['id']}")
+        return jsonify(format_summary_row(row)), 201
+
+    except ValueError as e:
+        print(f"[process-recording] ValueError: {e}")
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        print(f"[process-recording] Exception: {type(e).__name__}: {e}")
+        return jsonify({"error": f"Processing failed: {str(e)}"}), 500
+    finally:
+        try:
+            os.remove(filepath)
+        except Exception:
+            pass
+
+
+@app.route("/summaries/latest/<meeting_id>", methods=["GET"])
+def get_latest_summary(meeting_id):
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """SELECT id, meeting_id, transcript, summary, key_points, action_items, created_at
+               FROM summaries WHERE meeting_id = %s ORDER BY created_at DESC LIMIT 1""",
+            (meeting_id,),
+        )
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify(None), 200
+
+        return jsonify(format_summary_row(row)), 200
+    except Exception as e:
+        print(f"Error fetching latest summary: {e}")
+        return jsonify({"error": "Failed to fetch summary"}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route("/summaries/by-meeting-ids", methods=["GET"])
+def get_summaries_by_meeting_ids():
+    meeting_ids_str = request.args.get("meetingIds", "")
+    if not meeting_ids_str:
+        return jsonify([]), 200
+
+    meeting_ids = meeting_ids_str.split(",")
+
+    conn = get_db()
+    cur = conn.cursor()
+    placeholders = ",".join(["%s"] * len(meeting_ids))
+    cur.execute(
+        f"""SELECT id, meeting_id, transcript, summary, key_points, action_items, created_at
+           FROM summaries WHERE meeting_id IN ({placeholders}) ORDER BY created_at DESC""",
+        meeting_ids,
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return jsonify([format_summary_row(row) for row in rows]), 200
+
+
+@app.route("/summaries", methods=["POST"])
+def create_summary():
+    data = request.get_json()
+    if not data or not data.get("meetingId"):
+        return jsonify({"error": "meetingId is required"}), 400
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        """INSERT INTO summaries (meeting_id, transcript, summary, key_points, action_items)
+           VALUES (%s, %s, %s, %s, %s)
+           RETURNING id, meeting_id, transcript, summary, key_points, action_items, created_at""",
+        (
+            data["meetingId"],
+            data.get("transcript", ""),
+            data.get("summary", ""),
+            data.get("keyPoints", []),
+            data.get("actionItems", []),
+        ),
+    )
+    row = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify(format_summary_row(row)), 201
+
+
+# =============================================================================
+# MAIN
+# =============================================================================
+
+if __name__ == "__main__":
+    init_db()
     app.run(debug=True, port=5000)

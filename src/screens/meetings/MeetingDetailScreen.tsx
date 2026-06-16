@@ -1,9 +1,10 @@
 // Meeting detail screen - shows meeting info and AI summary
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View, Dimensions } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import * as Calendar from 'expo-calendar';
+import * as Calendar from 'expo-calendar/legacy';
 
 import type { AppStackParamList } from '../../navigation/types';
 import { formatMeetingTime } from '../../utils/date';
@@ -27,37 +28,39 @@ export const MeetingDetailScreen = ({ route, navigation }: Props) => {
   const [isSummaryLoading, setIsSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
 
-    const loadSummary = async () => {
-      try {
-        setIsSummaryLoading(true);
-        setSummaryError(null);
-        const summaryData = await meetingSummaryService.getLatestSummary(meeting.id);
-        if (!isMounted) {
-          return;
+      const loadSummary = async () => {
+        try {
+          setIsSummaryLoading(true);
+          setSummaryError(null);
+          const summaryData = await meetingSummaryService.getLatestSummary(meeting.id);
+          if (!isMounted) {
+            return;
+          }
+          setSummary(summaryData);
+        } catch (error) {
+          if (!isMounted) {
+            return;
+          }
+          const message = error instanceof Error && error.message.trim() ? error.message : 'بارگذاری خلاصه انجام نشد.';
+          setSummaryError(message);
+        } finally {
+          if (isMounted) {
+            setIsSummaryLoading(false);
+          }
         }
-        setSummary(summaryData);
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-        const message = error instanceof Error && error.message.trim() ? error.message : 'بارگذاری خلاصه انجام نشد.';
-        setSummaryError(message);
-      } finally {
-        if (isMounted) {
-          setIsSummaryLoading(false);
-        }
-      }
-    };
+      };
 
-    void loadSummary();
+      void loadSummary();
 
-    return () => {
-      isMounted = false;
-    };
-  }, [meeting.id]);
+      return () => {
+        isMounted = false;
+      };
+    }, [meeting.id]),
+  );
 
   const runDeleteMeeting = () => {
     const remove = async () => {

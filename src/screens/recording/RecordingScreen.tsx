@@ -1,6 +1,6 @@
 // Recording screen - audio recording and playback for meetings
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, View, Dimensions } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AudioPlayer } from 'expo-audio';
@@ -134,174 +134,176 @@ export const RecordingScreen = ({ route, navigation }: Props) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.centeredContainer}>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroKicker}>استودیو ضبط</Text>
-          <Text style={styles.title}>{meeting.title}</Text>
-          <Text style={styles.meta}>{formatMeetingTime(meeting.startDateISO, meeting.endDateISO)}</Text>
-        </View>
-
-        <View style={styles.timerCard}>
-          <Text style={styles.timerLabel}>مدت ضبط</Text>
-          <Text style={styles.timerValue}>{formatDuration(durationMs)}</Text>
-          <Text style={styles.stateText}>وضعیت: {stateLabel[status]}</Text>
-        </View>
-
-        <View style={styles.guidanceCard}>
-          <Text style={styles.guidanceText}>{guidanceText()}</Text>
-        </View>
-
-        {status === 'permissionDenied' ? (
-          <View style={styles.messageCard}>
-            <Text style={styles.errorText}>دسترسی میکروفون لازم است.</Text>
-            <Pressable style={styles.secondaryButton} onPress={() => void Linking.openSettings()}>
-              <Text style={styles.secondaryButtonText}>باز کردن تنظیمات</Text>
-            </Pressable>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.centeredContainer}>
+          <View style={styles.heroCard}>
+            <Text style={styles.heroKicker}>استودیو ضبط</Text>
+            <Text style={styles.title}>{meeting.title}</Text>
+            <Text style={styles.meta}>{formatMeetingTime(meeting.startDateISO, meeting.endDateISO)}</Text>
           </View>
-        ) : null}
 
-        {interruptionMessage ? (
-          <View style={styles.messageCard}>
-            <Text style={styles.warningText}>{interruptionMessage}</Text>
+          <View style={styles.timerCard}>
+            <Text style={styles.timerLabel}>مدت ضبط</Text>
+            <Text style={styles.timerValue}>{formatDuration(durationMs)}</Text>
+            <Text style={styles.stateText}>وضعیت: {stateLabel[status]}</Text>
           </View>
-        ) : null}
 
-        {errorMessage ? (
-          <View style={styles.messageCard}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
+          <View style={styles.guidanceCard}>
+            <Text style={styles.guidanceText}>{guidanceText()}</Text>
           </View>
-        ) : null}
 
-        {status === 'completed' && result ? (
-          <View style={styles.messageCard}>
-            <Text style={styles.successTitle}>ضبط ذخیره شد</Text>
-            <Text style={styles.uriText}>{result.localUri}</Text>
-            <Text style={styles.successMeta}>مدت: {formatDuration(result.durationMs)}</Text>
-            <View style={styles.playbackMetaRow}>
-              <Text style={styles.playbackMetaLabel}>پخش</Text>
-              <Text style={styles.playbackMetaValue}>
-                {playbackStatus.isLoaded 
-                  ? `${formatDuration(playbackCurrentMs)} / ${formatDuration(playbackDurationMs)}`
-                  : 'در حال بارگذاری...'}
-              </Text>
+          {status === 'permissionDenied' ? (
+            <View style={styles.messageCard}>
+              <Text style={styles.errorText}>دسترسی میکروفون لازم است.</Text>
+              <Pressable style={styles.secondaryButton} onPress={() => void Linking.openSettings()}>
+                <Text style={styles.secondaryButtonText}>باز کردن تنظیمات</Text>
+              </Pressable>
             </View>
-            <View style={styles.row}>
+          ) : null}
+
+          {interruptionMessage ? (
+            <View style={styles.messageCard}>
+              <Text style={styles.warningText}>{interruptionMessage}</Text>
+            </View>
+          ) : null}
+
+          {errorMessage ? (
+            <View style={styles.messageCard}>
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
+
+          {status === 'completed' && result ? (
+            <View style={styles.messageCard}>
+              <Text style={styles.successTitle}>ضبط ذخیره شد</Text>
+              <Text style={styles.uriText}>{result.localUri}</Text>
+              <Text style={styles.successMeta}>مدت: {formatDuration(result.durationMs)}</Text>
+              <View style={styles.playbackMetaRow}>
+                <Text style={styles.playbackMetaLabel}>پخش</Text>
+                <Text style={styles.playbackMetaValue}>
+                  {playbackStatus.isLoaded 
+                    ? `${formatDuration(playbackCurrentMs)} / ${formatDuration(playbackDurationMs)}`
+                    : 'در حال بارگذاری...'}
+                </Text>
+              </View>
+              <View style={styles.row}>
+                <Pressable
+                  style={[styles.secondaryButton, !playbackStatus.isLoaded && styles.disabledButton]}
+                  onPress={handlePlayPause}
+                  disabled={!playbackStatus.isLoaded}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    {!playbackStatus.isLoaded 
+                      ? 'بارگذاری...' 
+                      : isPlaying 
+                        ? 'مکث پخش' 
+                        : 'پخش ضبط'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.secondaryButton, !playbackStatus.isLoaded && styles.disabledButton]}
+                  onPress={handleReplay}
+                  disabled={!playbackStatus.isLoaded}
+                >
+                  <Text style={styles.secondaryButtonText}>پخش دوباره</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.controls}>
+            {status === 'idle' ||
+            status === 'permissionDenied' ||
+            status === 'error' ||
+            status === 'requestingPermission' ? (
               <Pressable
-                style={[styles.secondaryButton, !playbackStatus.isLoaded && styles.disabledButton]}
-                onPress={handlePlayPause}
-                disabled={!playbackStatus.isLoaded}
+                style={[styles.primaryButton, status === 'requestingPermission' ? styles.disabledButton : null]}
+                onPress={() => void start()}
+                disabled={status === 'requestingPermission'}
               >
-                <Text style={styles.secondaryButtonText}>
-                  {!playbackStatus.isLoaded 
-                    ? 'بارگذاری...' 
-                    : isPlaying 
-                      ? 'مکث پخش' 
-                      : 'پخش ضبط'}
+                <Text style={styles.primaryButtonText}>
+                  {status === 'requestingPermission' ? 'در حال دریافت مجوز...' : 'شروع ضبط'}
                 </Text>
               </Pressable>
+            ) : null}
+
+            {status === 'recording' ? (
+              <View style={styles.row}>
+                <Pressable style={styles.secondaryButton} onPress={() => void pause()}>
+                  <Text style={styles.secondaryButtonText}>مکث</Text>
+                </Pressable>
+                <Pressable style={styles.dangerButton} onPress={() => void stop()}>
+                  <Text style={styles.dangerButtonText}>پایان</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {status === 'paused' ? (
+              <View style={styles.row}>
+                <Pressable style={styles.primaryButton} onPress={() => void resume()}>
+                  <Text style={styles.primaryButtonText}>ادامه</Text>
+                </Pressable>
+                <Pressable style={styles.dangerButton} onPress={() => void stop()}>
+                  <Text style={styles.dangerButtonText}>پایان</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {status === 'completed' ? (
+              <View style={styles.row}>
+                <Pressable style={styles.secondaryButton} onPress={reset}>
+                  <Text style={styles.secondaryButtonText}>ضبط دوباره</Text>
+                </Pressable>
+                <Pressable style={styles.primaryButton} onPress={() => navigation.goBack()}>
+                  <Text style={styles.primaryButtonText}>بازگشت به جلسه</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {status === 'completed' && !aiDone ? (
               <Pressable
-                style={[styles.secondaryButton, !playbackStatus.isLoaded && styles.disabledButton]}
-                onPress={handleReplay}
-                disabled={!playbackStatus.isLoaded}
+                style={[styles.aiButton, aiProcessing ? styles.disabledButton : null]}
+                onPress={handleAiProcess}
+                disabled={aiProcessing}
               >
-                <Text style={styles.secondaryButtonText}>پخش دوباره</Text>
+                {aiProcessing ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.aiButtonText}>دریافت متن و خلاصه با هوش مصنوعی</Text>
+                )}
               </Pressable>
-            </View>
+            ) : null}
+
+            {aiProcessing ? (
+              <View style={styles.aiStatusCard}>
+                <ActivityIndicator size="small" color={colors.accentDark} />
+                <Text style={styles.aiStatusText}>در حال پردازش صدا و تولید خلاصه. ممکن است این فرایند مقداری طول بکشد</Text>
+              </View>
+            ) : null}
+
+            {aiError ? (
+              <View style={styles.messageCard}>
+                <Text style={styles.errorText}>{aiError}</Text>
+              </View>
+            ) : null}
+
+            {aiDone ? (
+              <View style={styles.aiDoneCard}>
+                <Text style={styles.aiDoneTitle}>متن و خلاصه آماده شد</Text>
+                <Text style={styles.aiDoneText}>برای مشاهده به صفحه جزئیات جلسه بروید.</Text>
+                <Pressable style={styles.primaryButton} onPress={() => navigation.goBack()}>
+                  <Text style={styles.primaryButtonText}>مشاهده در جلسه</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {status === 'stopping' ? <Text style={styles.helperText}>در حال ذخیره ضبط...</Text> : null}
+            {!canStop(status) && status === 'requestingPermission' ? (
+              <Text style={styles.helperText}>در حال درخواست دسترسی میکروفون...</Text>
+            ) : null}
           </View>
-        ) : null}
-
-        <View style={styles.controls}>
-          {status === 'idle' ||
-          status === 'permissionDenied' ||
-          status === 'error' ||
-          status === 'requestingPermission' ? (
-            <Pressable
-              style={[styles.primaryButton, status === 'requestingPermission' ? styles.disabledButton : null]}
-              onPress={() => void start()}
-              disabled={status === 'requestingPermission'}
-            >
-              <Text style={styles.primaryButtonText}>
-                {status === 'requestingPermission' ? 'در حال دریافت مجوز...' : 'شروع ضبط'}
-              </Text>
-            </Pressable>
-          ) : null}
-
-          {status === 'recording' ? (
-            <View style={styles.row}>
-              <Pressable style={styles.secondaryButton} onPress={() => void pause()}>
-                <Text style={styles.secondaryButtonText}>مکث</Text>
-              </Pressable>
-              <Pressable style={styles.dangerButton} onPress={() => void stop()}>
-                <Text style={styles.dangerButtonText}>پایان</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {status === 'paused' ? (
-            <View style={styles.row}>
-              <Pressable style={styles.primaryButton} onPress={() => void resume()}>
-                <Text style={styles.primaryButtonText}>ادامه</Text>
-              </Pressable>
-              <Pressable style={styles.dangerButton} onPress={() => void stop()}>
-                <Text style={styles.dangerButtonText}>پایان</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {status === 'completed' ? (
-            <View style={styles.row}>
-              <Pressable style={styles.secondaryButton} onPress={reset}>
-                <Text style={styles.secondaryButtonText}>ضبط دوباره</Text>
-              </Pressable>
-              <Pressable style={styles.primaryButton} onPress={() => navigation.goBack()}>
-                <Text style={styles.primaryButtonText}>بازگشت به جلسه</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {status === 'completed' && !aiDone ? (
-            <Pressable
-              style={[styles.aiButton, aiProcessing ? styles.disabledButton : null]}
-              onPress={handleAiProcess}
-              disabled={aiProcessing}
-            >
-              {aiProcessing ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.aiButtonText}>دریافت متن و خلاصه با هوش مصنوعی</Text>
-              )}
-            </Pressable>
-          ) : null}
-
-          {aiProcessing ? (
-            <View style={styles.aiStatusCard}>
-              <ActivityIndicator size="small" color={colors.accentDark} />
-              <Text style={styles.aiStatusText}>در حال پردازش صدا و تولید خلاصه...</Text>
-            </View>
-          ) : null}
-
-          {aiError ? (
-            <View style={styles.messageCard}>
-              <Text style={styles.errorText}>{aiError}</Text>
-            </View>
-          ) : null}
-
-          {aiDone ? (
-            <View style={styles.aiDoneCard}>
-              <Text style={styles.aiDoneTitle}>متن و خلاصه آماده شد</Text>
-              <Text style={styles.aiDoneText}>برای مشاهده به صفحه جزئیات جلسه بروید.</Text>
-              <Pressable style={styles.primaryButton} onPress={() => navigation.goBack()}>
-                <Text style={styles.primaryButtonText}>مشاهده در جلسه</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {status === 'stopping' ? <Text style={styles.helperText}>در حال ذخیره ضبط...</Text> : null}
-          {!canStop(status) && status === 'requestingPermission' ? (
-            <Text style={styles.helperText}>در حال درخواست دسترسی میکروفون...</Text>
-          ) : null}
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -311,8 +313,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   centeredContainer: {
-    flex: 1,
     width: CONTAINER_WIDTH,
     maxWidth: CONTAINER_MAX_WIDTH,
     alignSelf: 'center',

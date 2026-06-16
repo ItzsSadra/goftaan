@@ -1,5 +1,5 @@
 // Calendar service - fetches meetings from device calendar
-import * as Calendar from 'expo-calendar';
+import * as Calendar from 'expo-calendar/legacy';
 
 import type { Meeting } from '../models/meeting';
 
