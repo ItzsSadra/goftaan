@@ -53,6 +53,17 @@ export const manualMeetingsService = {
     return data.map(toMeeting);
   },
 
+  async getPastMeetings(userId: string): Promise<Meeting[]> {
+    const response = await fetch(`${apiBase}/meetings?user_id=${encodeURIComponent(userId)}&past=true`);
+    const data = await response.json();
+
+    if (!response.ok || !Array.isArray(data)) {
+      throw new Error(getErrorMessage(data, 'Failed to load past meetings.'));
+    }
+
+    return data.map(toMeeting);
+  },
+
   async getAllMeetings(userId: string): Promise<Meeting[]> {
     const response = await fetch(`${apiBase}/meetings?user_id=${encodeURIComponent(userId)}`);
     const data = await response.json();

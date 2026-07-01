@@ -1,2 +1,2 @@
 export const API_BASE_URL: string =
-  process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
+  'https://flask-4raubw.chbkn.run';

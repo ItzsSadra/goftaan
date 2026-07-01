@@ -1,4 +1,3 @@
-// Login/Register screen
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,7 +8,7 @@ import {
   Text,
   TextInput,
   View,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -27,6 +26,10 @@ export const LoginScreen = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const { width } = useWindowDimensions();
+  const isDesktop = width > 768;
+  const isSmall = width < 380;
+
   const isSignupMode = mode === 'signup';
 
   const handleSubmit = async () => {
@@ -34,12 +37,10 @@ export const LoginScreen = () => {
       setErrorMessage('نام را وارد کنید.');
       return;
     }
-
     if (!email.trim() || !password) {
       setErrorMessage('ایمیل و رمز عبور را وارد کنید.');
       return;
     }
-
     try {
       setIsSubmitting(true);
       setErrorMessage(null);
@@ -63,47 +64,40 @@ export const LoginScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.bgOrbTop} />
-      <View style={styles.bgOrbBottom} />
       <KeyboardAvoidingView
-        style={styles.keyboardContainer}
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.contentWrapper}>
-          <View style={styles.brandRow}>
-            <Text style={styles.brandDot}>●</Text>
-            <Text style={styles.brandText}>گفتان</Text>
+        <View style={[styles.contentWrapper, isDesktop && styles.contentWrapperDesktop]}>
+          <View style={styles.brandSection}>
+            <View style={styles.brandIcon}>
+              <Text style={styles.brandIconText}>G</Text>
+            </View>
+            <Text style={styles.brandName}>گفتان</Text>
+            <Text style={styles.brandTagline}>مدیریت هوشمند جلسات</Text>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.kicker}>گفتان</Text>
-            <Text style={styles.title}>{isSignupMode ? 'ساخت حساب کاربری' : 'ورود کاربر'}</Text>
-            <Text style={styles.subtitle}>
-              {isSignupMode
-                ? 'برای شروع، نام، ایمیل و رمز عبور را وارد کنید.'
-                : 'برای دسترسی به برنامه، ایمیل و رمز عبور خود را وارد کنید.'}
-            </Text>
-            <Text style={styles.appIntro}>
-              جلسه‌ها را مدیریت کنید، صدای جلسات را ضبط کنید و خلاصه‌های هوشمند دریافت کنید.
-            </Text>
+          <View style={[styles.card, isSmall && styles.cardSmall]}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>{isSignupMode ? 'ساخت حساب' : 'ورود'}</Text>
+              <Text style={styles.cardSubtitle}>
+                {isSignupMode
+                  ? 'برای شروع، اطلاعات خود را وارد کنید.'
+                  : 'به حساب خود وارد شوید.'}
+              </Text>
+            </View>
 
             <View style={styles.modeSwitch}>
               <Pressable
                 style={[styles.modeTab, !isSignupMode ? styles.modeTabActive : null]}
-                onPress={() => {
-                  setMode('login');
-                  setErrorMessage(null);
-                }}
+                onPress={() => { setMode('login'); setErrorMessage(null); }}
                 disabled={isSubmitting}
               >
                 <Text style={[styles.modeTabText, !isSignupMode ? styles.modeTabTextActive : null]}>ورود</Text>
               </Pressable>
               <Pressable
                 style={[styles.modeTab, isSignupMode ? styles.modeTabActive : null]}
-                onPress={() => {
-                  setMode('signup');
-                  setErrorMessage(null);
-                }}
+                onPress={() => { setMode('signup'); setErrorMessage(null); }}
                 disabled={isSubmitting}
               >
                 <Text style={[styles.modeTabText, isSignupMode ? styles.modeTabTextActive : null]}>ثبت‌نام</Text>
@@ -156,13 +150,27 @@ export const LoginScreen = () => {
               />
             </View>
 
-            {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+            {errorMessage ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            ) : null}
 
-            <Pressable style={styles.loginButton} onPress={() => void handleSubmit()} disabled={isSubmitting}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.submitButton,
+                isSubmitting && styles.submitButtonDisabled,
+                pressed && !isSubmitting && styles.submitButtonPressed,
+              ]}
+              onPress={() => void handleSubmit()}
+              disabled={isSubmitting}
+            >
               {isSubmitting ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.loginButtonText}>{isSignupMode ? 'ثبت‌نام' : 'ورود'}</Text>
+                <Text style={styles.submitButtonText}>
+                  {isSignupMode ? 'ثبت‌نام' : 'ورود'}
+                </Text>
               )}
             </Pressable>
           </View>
@@ -172,116 +180,101 @@ export const LoginScreen = () => {
   );
 };
 
-const { width } = Dimensions.get('window');
-const isDesktop = width > 768;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  bgOrbTop: {
-    position: 'absolute',
-    top: -90,
-    right: -70,
-    width: 220,
-    height: 220,
-    borderRadius: 120,
-    backgroundColor: colors.accentSoft,
-  },
-  bgOrbBottom: {
-    position: 'absolute',
-    bottom: -100,
-    left: -80,
-    width: 250,
-    height: 250,
-    borderRadius: 140,
-    backgroundColor: '#EFE3CC',
-  },
-  keyboardContainer: {
+  flex: {
     flex: 1,
   },
   contentWrapper: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: isDesktop ? 0 : 20,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    gap: 28,
   },
-  brandRow: {
-    flexDirection: 'row',
+  contentWrapperDesktop: {
+    paddingHorizontal: 0,
+  },
+  brandSection: {
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
-    marginBottom: 14,
   },
-  brandDot: {
-    color: colors.accentDark,
-    fontSize: 18,
-    lineHeight: 20,
+  brandIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: colors.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  brandText: {
-    color: colors.textPrimary,
+  brandIconText: {
+    fontSize: 28,
     fontFamily: typography.bold,
-    fontSize: 16,
-    letterSpacing: 0.4,
+    color: '#FFFFFF',
+  },
+  brandName: {
+    fontSize: 24,
+    fontFamily: typography.bold,
+    color: colors.textPrimary,
+  },
+  brandTagline: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontFamily: typography.regular,
   },
   card: {
-    width: isDesktop ? 420 : '100%',
-    maxWidth: 420,
+    width: '100%',
+    maxWidth: 400,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surfaceElevated,
-    padding: 20,
-    gap: 10,
+    backgroundColor: colors.surface,
+    padding: 24,
+    gap: 16,
   },
-  kicker: {
-    fontSize: 11,
-    color: colors.accentDark,
-    letterSpacing: 1,
-    fontFamily: typography.bold,
+  cardSmall: {
+    padding: 18,
+    gap: 14,
   },
-  title: {
-    fontSize: 30,
+  cardHeader: {
+    gap: 4,
+  },
+  cardTitle: {
+    fontSize: 22,
     color: colors.textPrimary,
     fontFamily: typography.bold,
   },
-  subtitle: {
+  cardSubtitle: {
+    fontSize: 14,
     color: colors.textSecondary,
     fontFamily: typography.regular,
-    fontSize: 14,
     lineHeight: 20,
-    marginBottom: 6,
-  },
-  appIntro: {
-    color: colors.accentDark,
-    fontFamily: typography.regular,
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    backgroundColor: colors.accentSoft,
-    borderRadius: 10,
-    overflow: 'hidden',
   },
   modeSwitch: {
-    marginTop: 6,
     flexDirection: 'row',
-    borderRadius: 13,
+    borderRadius: 12,
     backgroundColor: colors.backgroundAccent,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 4,
+    padding: 3,
   },
   modeTab: {
     flex: 1,
     alignItems: 'center',
     borderRadius: 10,
-    paddingVertical: 9,
+    paddingVertical: 10,
   },
   modeTabActive: {
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: colors.surface,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   modeTabText: {
     color: colors.textSecondary,
@@ -292,43 +285,54 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   form: {
-    gap: 7,
-    marginTop: 2,
+    gap: 8,
   },
   label: {
     color: colors.textPrimary,
     fontFamily: typography.bold,
-    fontSize: 14,
+    fontSize: 13,
   },
   input: {
     height: 48,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
-    backgroundColor: '#F7F2E8',
+    borderRadius: 12,
+    backgroundColor: colors.background,
     paddingHorizontal: 14,
     color: colors.textPrimary,
     fontFamily: typography.regular,
-    fontSize: 14,
+    fontSize: 15,
   },
-  loginButton: {
-    marginTop: 14,
-    height: 50,
-    borderRadius: 14,
-    backgroundColor: colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
+  errorBox: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
-  loginButtonText: {
-    color: '#FFFFFF',
-    fontFamily: typography.bold,
-    fontSize: 16,
-  },
-  error: {
-    marginTop: 4,
+  errorText: {
     color: colors.danger,
     fontFamily: typography.regular,
     fontSize: 13,
     textAlign: 'left',
+  },
+  submitButton: {
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: colors.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
+  },
+  submitButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.99 }],
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontFamily: typography.bold,
+    fontSize: 16,
   },
 });

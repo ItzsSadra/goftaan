@@ -1,5 +1,4 @@
-// Root navigation component - handles auth flow and main app navigation
-import { ActivityIndicator, StyleSheet, View, Dimensions } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -22,10 +21,6 @@ const AppStack = createNativeStackNavigator<AppStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const HomeTabs = createBottomTabNavigator<HomeTabParamList>();
 
-const { width } = Dimensions.get('window');
-const isDesktop = width > 768;
-const TAB_BAR_MAX_WIDTH = 800;
-
 const sharedScreenOptions = {
   headerStyle: { backgroundColor: colors.background },
   headerTintColor: colors.textPrimary,
@@ -34,69 +29,84 @@ const sharedScreenOptions = {
   contentStyle: { backgroundColor: colors.background },
 };
 
-const tabsScreenOptions = ({ route }: { route: { name: keyof HomeTabParamList } }) => ({
-  headerShown: false,
-  tabBarStyle: {
-    position: 'absolute' as const,
-    left: isDesktop ? '50%' : 14,
-    right: isDesktop ? 'auto' : 14,
-    bottom: 14,
-    width: isDesktop ? TAB_BAR_MAX_WIDTH : 'auto',
-    transform: isDesktop ? [{ translateX: -TAB_BAR_MAX_WIDTH / 2 }] : undefined,
-    borderRadius: 18,
-    backgroundColor: colors.surfaceElevated,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    height: 66,
-    paddingBottom: 8,
-    paddingTop: 7,
-    elevation: 8,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-  },
-  tabBarLabelStyle: {
-    fontFamily: typography.bold,
-    fontSize: 11,
-  },
-  tabBarIcon: ({ color, size }: { color: string; size: number }) => {
-    const iconMap: Record<keyof HomeTabParamList, ComponentProps<typeof Ionicons>['name']> = {
-      MeetingsList: 'calendar-outline',
-      Analytics: 'stats-chart-outline',
-      Settings: 'settings-outline',
-    };
-
-    return <Ionicons name={iconMap[route.name]} size={size} color={color} />;
-  },
-  tabBarActiveTintColor: colors.accentDark,
-  tabBarInactiveTintColor: colors.textSecondary,
-});
-
-const HomeTabsNavigator = () => {
-  return (
-    <HomeTabs.Navigator screenOptions={tabsScreenOptions}>
-      <HomeTabs.Screen
-        name="MeetingsList"
-        component={MeetingsListScreen}
-        options={{ title: 'جلسه‌ها', tabBarLabel: 'جلسه‌ها' }}
-      />
-      <HomeTabs.Screen
-        name="Analytics"
-        component={AnalyticsScreen}
-        options={{ title: 'تحلیل', tabBarLabel: 'تحلیل' }}
-      />
-      <HomeTabs.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{ title: 'تنظیمات', tabBarLabel: 'تنظیمات' }}
-      />
-    </HomeTabs.Navigator>
-  );
-};
-
 export const RootNavigator = () => {
   const { isReady, isLoggedIn } = useAuth();
+  const { width } = useWindowDimensions();
+  const isDesktop = width > 768;
+
+  const tabsScreenOptions = ({ route }: { route: { name: keyof HomeTabParamList } }) => ({
+    headerShown: false,
+    tabBarStyle: {
+      height: 60,
+      paddingBottom: 6,
+      paddingTop: 6,
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      ...(isDesktop
+        ? {
+            position: 'absolute' as const,
+            left: '50%' as const,
+            bottom: 20,
+            width: Math.min(width - 40, 800),
+            transform: [{ translateX: -Math.min(width - 40, 800) / 2 }],
+            borderRadius: 18,
+            borderTopWidth: 0,
+            borderWidth: 1,
+            borderColor: colors.border,
+            elevation: 8,
+            shadowColor: colors.shadow,
+            shadowOpacity: 0.1,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 8 },
+          }
+        : {
+            borderTopLeftRadius: 18,
+            borderTopRightRadius: 18,
+            elevation: 8,
+            shadowColor: colors.shadow,
+            shadowOpacity: 0.1,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: -4 },
+          }),
+    },
+    tabBarLabelStyle: {
+      fontFamily: typography.bold,
+      fontSize: 11,
+    },
+    tabBarIcon: ({ color, size }: { color: string; size: number }) => {
+      const iconMap: Record<keyof HomeTabParamList, ComponentProps<typeof Ionicons>['name']> = {
+        MeetingsList: 'calendar-outline',
+        Analytics: 'stats-chart-outline',
+        Settings: 'settings-outline',
+      };
+      return <Ionicons name={iconMap[route.name]} size={size} color={color} />;
+    },
+    tabBarActiveTintColor: colors.accentDark,
+    tabBarInactiveTintColor: colors.textSecondary,
+  });
+
+  const HomeTabsNavigator = () => {
+    return (
+      <HomeTabs.Navigator screenOptions={tabsScreenOptions}>
+        <HomeTabs.Screen
+          name="MeetingsList"
+          component={MeetingsListScreen}
+          options={{ title: 'جلسه‌ها', tabBarLabel: 'جلسه‌ها' }}
+        />
+        <HomeTabs.Screen
+          name="Analytics"
+          component={AnalyticsScreen}
+          options={{ title: 'تحلیل', tabBarLabel: 'تحلیل' }}
+        />
+        <HomeTabs.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{ title: 'تنظیمات', tabBarLabel: 'تنظیمات' }}
+        />
+      </HomeTabs.Navigator>
+    );
+  };
 
   if (!isReady) {
     return (

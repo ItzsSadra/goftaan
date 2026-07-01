@@ -1,12 +1,12 @@
 import json
 import os
 import re
-import subprocess
+import shutil
 import uuid
 from datetime import datetime, timezone
 
 import psycopg2
-import speech_recognition as sr
+import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -16,7 +16,28 @@ from psycopg2.extras import RealDictCursor
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}, r"/summaries/*": {"origins": "*"}})
+
+# 1. Handle OPTIONS (preflight) for all routes
+@app.before_request
+def handle_preflight():
+    if request.method == 'OPTIONS':
+        resp = app.make_default_options_response()
+        origin = request.headers.get('Origin')
+        if origin:
+            resp.headers['Access-Control-Allow-Origin'] = origin
+            resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            resp.headers['Access-Control-Allow-Credentials'] = 'true'
+        return resp
+
+# 2. Attach CORS headers to every actual response
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get('Origin')
+    if origin:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+    return response
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -109,56 +130,74 @@ def format_summary_row(d):
 # AI helper functions
 # ---------------------------------------------------------------------------
 def transcribe_audio(audio_path: str) -> str:
-    # Convert WebM/Opus (from browser) to WAV since sr.AudioFile doesn't support it
     ext = audio_path.rsplit(".", 1)[-1].lower()
-    wav_path = None
-    if ext not in ("wav", "aiff", "aifc", "flac"):
-        wav_path = audio_path.rsplit(".", 1)[0] + ".wav"
+
+    # Strategy 1: ffmpeg + SpeechRecognition (local dev with ffmpeg installed)
+    if shutil.which("ffmpeg"):
         try:
+            import speech_recognition as sr
+            wav_path = audio_path.rsplit(".", 1)[0] + ".wav"
+            import subprocess
             subprocess.run(
-                [
-                    "ffmpeg",
-                    "-y",
-                    "-i",
-                    audio_path,
-                    "-acodec",
-                    "pcm_s16le",
-                    "-ar",
-                    "16000",
-                    "-ac",
-                    "1",
-                    wav_path,
-                ],
-                capture_output=True,
-                check=True,
-                timeout=60,
+                ["ffmpeg", "-y", "-i", audio_path, "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", wav_path],
+                capture_output=True, check=True, timeout=60,
             )
-            audio_path = wav_path
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            raise ValueError(
-                "فرمت فایل صوتی پشتیبانی نمی‌شود. لطفا فایل را به WAV تبدیل کنید."
-            ) from e
-
-    recognizer = sr.Recognizer()
-    try:
-        with sr.AudioFile(audio_path) as source:
-            audio = recognizer.record(source)
-    finally:
-        if wav_path and os.path.exists(wav_path):
             try:
-                os.remove(wav_path)
-            except Exception:
-                pass
+                with sr.AudioFile(wav_path) as source:
+                    audio = sr.Recognizer().record(source)
+                text = sr.Recognizer().recognize_google(audio, language="fa-IR")
+                if text and text.strip():
+                    return text
+            finally:
+                if os.path.exists(wav_path):
+                    try: os.remove(wav_path)
+                    except Exception: pass
+        except Exception:
+            pass
+
+    # Strategy 2: Direct HTTP to Google's free speech API
+    mime_types = {
+        "webm": "audio/webm",
+        "opus": "audio/ogg; codecs=opus",
+        "ogg": "audio/ogg",
+        "m4a": "audio/mp4",
+        "mp4": "audio/mp4",
+        "wav": "audio/wav",
+        "flac": "audio/flac",
+        "mp3": "audio/mpeg",
+    }
+    content_type = mime_types.get(ext, "audio/webm")
+
+    with open(audio_path, "rb") as f:
+        audio_data = f.read()
+
+    url = "https://www.google.com/speech-api/v2/recognize"
+    params = {"output": "json", "lang": "fa-IR", "key": "AIzaSyBOti4mM-6x9WDnZIjIeyEU21OpBXqWBgw"}
+    headers = {"Content-Type": content_type}
 
     try:
-        text = recognizer.recognize_google(audio, language="fa-IR")
-        if not text or not text.strip():
-            raise ValueError("متن خالی از سرویس گفتار به متن دریافت شد.")
-        return text
-    except sr.UnknownValueError:
-        raise ValueError("تشخیص گفتار نتوانست صدا را درک کند. لطفا واضح‌تر صحبت کنید.")
-    except sr.RequestError as e:
-        raise ValueError(f"خطا در ارتباط با سرویس تشخیص گفتار گوگل: {e}")
+        resp = requests.post(url, params=params, data=audio_data, headers=headers, timeout=30)
+        if resp.status_code == 200:
+            for line in resp.text.strip().split("\n"):
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    if "result" in data and data["result"]:
+                        for result in data["result"]:
+                            if "alternative" in result and result["alternative"]:
+                                transcript = result["alternative"][0].get("transcript", "")
+                                if transcript.strip():
+                                    return transcript
+                except json.JSONDecodeError:
+                    continue
+    except requests.RequestException:
+        pass
+
+    raise ValueError(
+        "تشخیص گفتار روی سرور برای این فرمت پشتیبانی نمی‌شود. "
+        "لطفا از نسخه وب که تشخیص گفتار مرورگر را پشتیبانی می‌کند استفاده کنید."
+    )
 
 
 def _extract_json(raw: str) -> dict | None:
@@ -552,6 +591,7 @@ def delete_account(user_id):
 def get_meetings():
     user_id = request.args.get("user_id")
     upcoming = request.args.get("upcoming", "false").lower() == "true"
+    past = request.args.get("past", "false").lower() == "true"
 
     if not user_id:
         return jsonify({"message": "user_id is required"}), 400
@@ -569,11 +609,20 @@ def get_meetings():
         """
         params = [user_id]
 
+        now = datetime.now(timezone.utc)
+
         if upcoming:
             query += " AND end_at >= %s"
-            params.append(datetime.now(timezone.utc))
+            params.append(now)
 
-        query += " ORDER BY start_at ASC"
+        if past:
+            query += " AND end_at < %s"
+            params.append(now)
+
+        if past:
+            query += " ORDER BY start_at DESC"
+        else:
+            query += " ORDER BY start_at ASC"
         cur.execute(query, params)
         rows = cur.fetchall()
 
@@ -888,4 +937,4 @@ def create_summary():
 
 if __name__ == "__main__":
     init_db()
-    app.run(debug=True, port=5000)
+    app.run(debug=True)

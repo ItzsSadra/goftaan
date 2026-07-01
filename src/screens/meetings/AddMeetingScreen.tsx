@@ -1,4 +1,3 @@
-// Add meeting screen - form to create manual meetings
 import { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -9,7 +8,7 @@ import {
   Text,
   TextInput,
   View,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -23,17 +22,11 @@ import { manualMeetingsService } from '../../features/meetings/services/manualMe
 
 type Props = NativeStackScreenProps<AppStackParamList, 'AddMeeting'>;
 
-const { width } = Dimensions.get('window');
-const isDesktop = width > 768;
-const CONTAINER_MAX_WIDTH = 800;
-const CONTAINER_WIDTH = isDesktop ? CONTAINER_MAX_WIDTH : '100%';
-
 const pad = (value: number): string => String(value).padStart(2, '0');
 
-const buildDefaults = (): { dateText: string; timeText: string } => {
+const buildDefaults = () => {
   const now = new Date();
   const start = new Date(now.getTime() + 30 * 60 * 1000);
-
   return {
     dateText: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
     timeText: `${pad(start.getHours())}:${pad(start.getMinutes())}`,
@@ -43,33 +36,15 @@ const buildDefaults = (): { dateText: string; timeText: string } => {
 const parseLocalDateTime = (dateText: string, timeText: string): Date | null => {
   const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateText.trim());
   const timeMatch = /^(\d{2}):(\d{2})$/.exec(timeText.trim());
-
-  if (!dateMatch || !timeMatch) {
-    return null;
-  }
-
+  if (!dateMatch || !timeMatch) return null;
   const year = Number(dateMatch[1]);
   const month = Number(dateMatch[2]);
   const day = Number(dateMatch[3]);
   const hour = Number(timeMatch[1]);
   const minute = Number(timeMatch[2]);
-
-  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) {
-    return null;
-  }
-
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) return null;
   const date = new Date(year, month - 1, day, hour, minute, 0, 0);
-
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day ||
-    date.getHours() !== hour ||
-    date.getMinutes() !== minute
-  ) {
-    return null;
-  }
-
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day || date.getHours() !== hour || date.getMinutes() !== minute) return null;
   return date;
 };
 
@@ -85,12 +60,16 @@ export const AddMeetingScreen = ({ navigation }: Props) => {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const { width } = useWindowDimensions();
+  const isDesktop = width > 768;
+  const isSmall = width < 380;
+  const CONTAINER_MAX_WIDTH = 800;
+
   useEffect(() => {
     const loadDefaultDuration = async () => {
       const appSettings = await settingsService.getAppSettings();
       setDurationText(String(appSettings.defaultMeetingDurationMinutes));
     };
-
     void loadDefaultDuration();
   }, []);
 
@@ -100,35 +79,28 @@ export const AddMeetingScreen = ({ navigation }: Props) => {
       setError('عنوان جلسه الزامی است.');
       return;
     }
-
     const start = parseLocalDateTime(dateText, timeText);
     if (!start) {
       setError('تاریخ و ساعت معتبر نیست. قالب باید YYYY-MM-DD و HH:mm باشد.');
       return;
     }
-
     if (start.getTime() < Date.now() - 60 * 1000) {
       setError('زمان شروع باید اکنون یا در آینده باشد.');
       return;
     }
-
     const duration = Number(durationText);
     if (!Number.isFinite(duration) || duration < 5 || duration > 600) {
       setError('مدت جلسه باید بین ۵ تا ۶۰۰ دقیقه باشد.');
       return;
     }
-
     const end = new Date(start.getTime() + duration * 60 * 1000);
-
     try {
       if (!user) {
         setError('کاربر وارد نشده است.');
         return;
       }
-
       setIsSaving(true);
       setError(null);
-
       await manualMeetingsService.addMeeting({
         userId: user.id,
         title: cleanTitle,
@@ -137,7 +109,6 @@ export const AddMeetingScreen = ({ navigation }: Props) => {
         startDateISO: start.toISOString(),
         endDateISO: end.toISOString(),
       });
-
       navigation.goBack();
     } catch {
       setError('ذخیره جلسه انجام نشد. دوباره تلاش کنید.');
@@ -149,25 +120,27 @@ export const AddMeetingScreen = ({ navigation }: Props) => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView
-        style={styles.container}
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={10}
       >
         <ScrollView
-          style={styles.scroll}
+          style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.centeredContainer}>
-            <View style={styles.heroCard}>
+          <View style={[styles.centeredContainer, { maxWidth: CONTAINER_MAX_WIDTH }]}>
+            <View style={[styles.heroCard, isSmall && styles.heroCardSmall]}>
               <Text style={styles.heroKicker}>جلسه جدید</Text>
-              <Text style={styles.title}>افزودن جلسه</Text>
+              <Text style={[styles.title, isSmall && styles.titleSmall]}>افزودن جلسه</Text>
               <Text style={styles.subtitle}>یک جلسه دستی برای ضبط و پیاده‌سازی بسازید.</Text>
-              <Text style={styles.tip}>جلسه‌هایی که در تقویم گوشی شما نیستند (مانند جلسات برنامه‌ریزی یا تماس) را اینجا اضافه کنید. جلسه‌های تقویم گوشی به‌طور خودکار در داشبورد نمایش داده می‌شوند.</Text>
+              <View style={styles.tip}>
+                <Text style={styles.tipText}>جلسه‌هایی که در تقویم گوشی شما نیستند را اینجا اضافه کنید.</Text>
+              </View>
             </View>
 
-            <View style={styles.formCard}>
+            <View style={[styles.formCard, isSmall && styles.formCardSmall]}>
               <Text style={styles.label}>عنوان</Text>
               <TextInput
                 value={title}
@@ -186,23 +159,32 @@ export const AddMeetingScreen = ({ navigation }: Props) => {
                 style={styles.input}
               />
 
-              <Text style={styles.label}>تاریخ (YYYY-MM-DD)</Text>
-              <TextInput
-                value={dateText}
-                onChangeText={setDateText}
-                autoCapitalize="none"
-                keyboardType="numbers-and-punctuation"
-                style={[styles.input, styles.inputLtr]}
-              />
-
-              <Text style={styles.label}>ساعت (HH:mm)</Text>
-              <TextInput
-                value={timeText}
-                onChangeText={setTimeText}
-                autoCapitalize="none"
-                keyboardType="numbers-and-punctuation"
-                style={[styles.input, styles.inputLtr]}
-              />
+              <View style={styles.row}>
+                <View style={styles.halfField}>
+                  <Text style={styles.label}>تاریخ</Text>
+                  <TextInput
+                    value={dateText}
+                    onChangeText={setDateText}
+                    autoCapitalize="none"
+                    keyboardType="numbers-and-punctuation"
+                    style={[styles.input, styles.inputLtr]}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                </View>
+                <View style={styles.halfField}>
+                  <Text style={styles.label}>ساعت</Text>
+                  <TextInput
+                    value={timeText}
+                    onChangeText={setTimeText}
+                    autoCapitalize="none"
+                    keyboardType="numbers-and-punctuation"
+                    style={[styles.input, styles.inputLtr]}
+                    placeholder="HH:mm"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                </View>
+              </View>
 
               <Text style={styles.label}>مدت (دقیقه)</Text>
               <TextInput
@@ -223,18 +205,28 @@ export const AddMeetingScreen = ({ navigation }: Props) => {
               />
             </View>
 
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
 
             <View style={styles.actions}>
               <Pressable style={styles.secondaryButton} onPress={() => navigation.goBack()}>
                 <Text style={styles.secondaryButtonText}>انصراف</Text>
               </Pressable>
               <Pressable
-                style={[styles.primaryButton, isSaving ? styles.buttonDisabled : null]}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  isSaving ? styles.buttonDisabled : null,
+                  pressed && !isSaving ? styles.buttonPressed : null,
+                ]}
                 onPress={() => void onSave()}
                 disabled={isSaving}
               >
-                <Text style={styles.primaryButtonText}>{isSaving ? 'در حال ذخیره...' : 'ذخیره جلسه'}</Text>
+                <Text style={styles.primaryButtonText}>
+                  {isSaving ? 'در حال ذخیره...' : 'ذخیره جلسه'}
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -249,27 +241,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  scroll: {
+  flex: {
+    flex: 1,
+  },
+  scrollView: {
     flex: 1,
   },
   scrollContent: {
-    flexGrow: 1,
+    paddingBottom: 40,
   },
   centeredContainer: {
-    width: CONTAINER_WIDTH,
-    maxWidth: CONTAINER_MAX_WIDTH,
+    width: '100%',
     alignSelf: 'center',
-    padding: isDesktop ? 20 : 16,
+    padding: 16,
     paddingBottom: 24,
-    gap: 12,
+    gap: 14,
   },
   heroCard: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 20,
-    backgroundColor: colors.surfaceElevated,
-    padding: 16,
-    gap: 4,
+    backgroundColor: colors.surface,
+    padding: 18,
+    gap: 6,
+  },
+  heroCardSmall: {
+    padding: 14,
   },
   heroKicker: {
     fontSize: 11,
@@ -278,9 +275,12 @@ const styles = StyleSheet.create({
     color: colors.accentDark,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontFamily: typography.bold,
     color: colors.textPrimary,
+  },
+  titleSmall: {
+    fontSize: 22,
   },
   subtitle: {
     color: colors.textSecondary,
@@ -288,67 +288,88 @@ const styles = StyleSheet.create({
     fontFamily: typography.regular,
   },
   tip: {
+    backgroundColor: colors.accentSoft,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 2,
+  },
+  tipText: {
     fontSize: 12,
     color: colors.accentDark,
     lineHeight: 18,
     fontFamily: typography.regular,
-    backgroundColor: colors.accentSoft,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginTop: 4,
-    overflow: 'hidden',
   },
   formCard: {
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 20,
-    padding: 16,
-    gap: 9,
+    padding: 18,
+    gap: 10,
+  },
+  formCardSmall: {
+    padding: 14,
+    gap: 8,
   },
   label: {
     color: colors.textPrimary,
     fontSize: 13,
     fontFamily: typography.bold,
-    marginTop: 4,
   },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
     color: colors.textPrimary,
-    backgroundColor: '#F8F4EB',
+    backgroundColor: colors.background,
     fontFamily: typography.regular,
     textAlign: 'right',
+    minHeight: 48,
   },
   inputLtr: {
     textAlign: 'left',
     writingDirection: 'ltr',
   },
   notesInput: {
-    minHeight: 88,
+    minHeight: 100,
     textAlignVertical: 'top',
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  halfField: {
+    flex: 1,
+    gap: 6,
+  },
+  errorBox: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
   errorText: {
     color: colors.danger,
-    fontSize: 14,
-    fontFamily: typography.bold,
+    fontSize: 13,
+    fontFamily: typography.regular,
   },
   actions: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 8,
   },
   primaryButton: {
     flex: 1,
     backgroundColor: colors.accent,
-    borderRadius: 14,
-    paddingVertical: 13,
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
   },
   primaryButtonText: {
     color: '#FFFFFF',
@@ -357,12 +378,14 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     flex: 1,
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingVertical: 13,
+    paddingVertical: 14,
     alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
   },
   secondaryButtonText: {
     color: colors.textPrimary,
@@ -371,5 +394,8 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.7,
+  },
+  buttonPressed: {
+    opacity: 0.9,
   },
 });

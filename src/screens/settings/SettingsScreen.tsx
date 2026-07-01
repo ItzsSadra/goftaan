@@ -9,7 +9,7 @@ import {
   Text,
   TextInput,
   View,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -22,11 +22,6 @@ import { settingsService } from '../../features/settings/services/settingsServic
 const PRE_MEETING_MINUTES = [5, 10, 15, 30];
 const DEFAULT_DURATION_OPTIONS = [30, 45, 60, 90];
 
-const { width } = Dimensions.get('window');
-const isDesktop = width > 768;
-const CONTAINER_MAX_WIDTH = 800;
-const CONTAINER_WIDTH = isDesktop ? CONTAINER_MAX_WIDTH : '100%';
-
 export const SettingsScreen = () => {
   const { user, updateUserProfile, updateUserPassword, deleteUserAccount, logout } = useAuth();
   const [settings, setSettings] = useState<SettingsState | null>(null);
@@ -38,6 +33,11 @@ export const SettingsScreen = () => {
   const [newPassword, setNewPassword] = useState('');
   const [isSavingPassword, setIsSavingPassword] = useState(false);
 
+  const { width } = useWindowDimensions();
+  const isDesktop = width > 768;
+  const isSmall = width < 380;
+  const CONTAINER_MAX_WIDTH = 800;
+
   useEffect(() => {
     const load = async () => {
       const current = await settingsService.getSettings();
@@ -45,7 +45,6 @@ export const SettingsScreen = () => {
       setProfileName(user?.name || '');
       setProfileEmail(user?.email || '');
     };
-
     void load();
   }, [user?.email, user?.name]);
 
@@ -64,7 +63,6 @@ export const SettingsScreen = () => {
       Alert.alert('خطا', 'نام و ایمیل را کامل وارد کنید.');
       return;
     }
-
     try {
       setIsSavingProfile(true);
       await updateUserProfile(profileName, profileEmail);
@@ -82,12 +80,10 @@ export const SettingsScreen = () => {
       Alert.alert('خطا', 'رمز فعلی و جدید را وارد کنید.');
       return;
     }
-
     if (newPassword.length < 4) {
       Alert.alert('خطا', 'رمز جدید باید حداقل ۴ کاراکتر باشد.');
       return;
     }
-
     try {
       setIsSavingPassword(true);
       await updateUserPassword(currentPassword, newPassword);
@@ -117,7 +113,6 @@ export const SettingsScreen = () => {
               Alert.alert('خطا', message);
             }
           };
-
           void remove();
         },
       },
@@ -125,15 +120,9 @@ export const SettingsScreen = () => {
   };
 
   const savingLabel = useMemo(() => {
-    if (isSavingSettings) {
-      return 'در حال ذخیره تنظیمات...';
-    }
-    if (isSavingProfile) {
-      return 'در حال ذخیره حساب...';
-    }
-    if (isSavingPassword) {
-      return 'در حال تغییر رمز عبور...';
-    }
+    if (isSavingSettings) return 'در حال ذخیره تنظیمات...';
+    if (isSavingProfile) return 'در حال ذخیره حساب...';
+    if (isSavingPassword) return 'در حال تغییر رمز عبور...';
     return '';
   }, [isSavingPassword, isSavingProfile, isSavingSettings]);
 
@@ -147,19 +136,42 @@ export const SettingsScreen = () => {
     );
   }
 
+  const SettingRow = ({ title, subtitle, value, onValueChange }: {
+    title: string;
+    subtitle: string;
+    value: boolean;
+    onValueChange: (value: boolean) => void;
+  }) => (
+    <View style={[styles.row, isSmall && styles.rowSmall]}>
+      <View style={styles.rowTextWrap}>
+        <Text style={[styles.rowTitle, isSmall && styles.rowTitleSmall]}>{title}</Text>
+        <Text style={[styles.rowSubtitle, isSmall && styles.rowSubtitleSmall]}>{subtitle}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        thumbColor={colors.surface}
+        trackColor={{ false: '#D1D5DB', true: colors.accentSoft }}
+
+      />
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.centeredContainer}>
-          <View style={styles.heroCard}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={[styles.centeredContainer, { maxWidth: CONTAINER_MAX_WIDTH }]}>
+          <View style={[styles.heroCard, isSmall && styles.heroCardSmall]}>
             <Text style={styles.kicker}>مرکز کنترل</Text>
-            <Text style={styles.title}>تنظیمات کامل</Text>
-            <Text style={styles.subtitle}>مدیریت حساب، رفتار برنامه و اعلان‌ها در یک صفحه</Text>
+            <Text style={[styles.title, isSmall && styles.titleSmall]}>تنظیمات</Text>
+            <Text style={styles.subtitle}>مدیریت حساب، رفتار برنامه و اعلان‌ها</Text>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>حساب کاربری</Text>
-            <Text style={styles.sectionDescription}>نام و ایمیل خود را مدیریت کنید. این اطلاعات در حساب شما ذخیره می‌شود.</Text>
+          <View style={[styles.card, isSmall && styles.cardSmall]}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>👤 حساب کاربری</Text>
+            </View>
+            <Text style={styles.sectionDescription}>نام و ایمیل خود را مدیریت کنید.</Text>
             <Text style={styles.label}>نام</Text>
             <TextInput
               style={styles.input}
@@ -179,13 +191,19 @@ export const SettingsScreen = () => {
               placeholder="you@example.com"
               placeholderTextColor={colors.textSecondary}
             />
-            <Pressable style={styles.primaryButton} onPress={() => void onSaveProfile()} disabled={isSavingProfile}>
+            <Pressable
+              style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed]}
+              onPress={() => void onSaveProfile()}
+              disabled={isSavingProfile}
+            >
               <Text style={styles.primaryButtonText}>ذخیره حساب</Text>
             </Pressable>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>امنیت</Text>
+          <View style={[styles.card, isSmall && styles.cardSmall]}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>🔒 امنیت</Text>
+            </View>
             <Text style={styles.sectionDescription}>برای تغییر رمز عبور، رمز فعلی و جدید را وارد کنید.</Text>
             <Text style={styles.label}>رمز عبور فعلی</Text>
             <TextInput
@@ -205,149 +223,114 @@ export const SettingsScreen = () => {
               placeholder="رمز جدید"
               placeholderTextColor={colors.textSecondary}
             />
-            <Pressable style={styles.primaryButton} onPress={() => void onChangePassword()} disabled={isSavingPassword}>
+            <Pressable
+              style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed]}
+              onPress={() => void onChangePassword()}
+              disabled={isSavingPassword}
+            >
               <Text style={styles.primaryButtonText}>تغییر رمز عبور</Text>
             </Pressable>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>اپلیکیشن</Text>
-            <View style={styles.row}>
-              <View style={styles.rowTextWrap}>
-                <Text style={styles.rowTitle}>تازه‌سازی خودکار جلسه‌ها</Text>
-                <Text style={styles.rowSubtitle}>هنگام ورود به صفحه جلسه‌ها خودکار رفرش شود</Text>
-              </View>
-              <Switch
-                value={settings.app.autoRefreshMeetings}
-                onValueChange={(value) => void saveSettings({ ...settings, app: { ...settings.app, autoRefreshMeetings: value } })}
-                thumbColor={colors.surfaceElevated}
-                trackColor={{ false: '#CCC4B3', true: colors.accent }}
-              />
+          <View style={[styles.card, isSmall && styles.cardSmall]}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>⚙️ اپلیکیشن</Text>
             </View>
-            <View style={styles.row}>
-              <View style={styles.rowTextWrap}>
-                <Text style={styles.rowTitle}>کارت‌های فشرده</Text>
-                <Text style={styles.rowSubtitle}>چیدمان کم‌فاصله‌تر برای لیست جلسه‌ها</Text>
-              </View>
-              <Switch
-                value={settings.app.compactCards}
-                onValueChange={(value) => void saveSettings({ ...settings, app: { ...settings.app, compactCards: value } })}
-                thumbColor={colors.surfaceElevated}
-                trackColor={{ false: '#CCC4B3', true: colors.accent }}
-              />
-            </View>
-            <View style={styles.row}>
-              <View style={styles.rowTextWrap}>
-                <Text style={styles.rowTitle}>تحلیل فقط اقدام معوق</Text>
-                <Text style={styles.rowSubtitle}>داشبورد تحلیل فقط جلسه‌های دارای اقدام معوق را نشان دهد</Text>
-              </View>
-              <Switch
-                value={settings.app.analyticsShowOverdueOnly}
-                onValueChange={(value) =>
-                  void saveSettings({ ...settings, app: { ...settings.app, analyticsShowOverdueOnly: value } })
-                }
-                thumbColor={colors.surfaceElevated}
-                trackColor={{ false: '#CCC4B3', true: colors.accent }}
-              />
-            </View>
+            <SettingRow
+              title="تازه‌سازی خودکار"
+              subtitle="هنگام ورود به صفحه جلسه‌ها خودکار رفرش شود"
+              value={settings.app.autoRefreshMeetings}
+              onValueChange={(value) => void saveSettings({ ...settings, app: { ...settings.app, autoRefreshMeetings: value } })}
+            />
+            <View style={styles.divider} />
+            <SettingRow
+              title="کارت‌های فشرده"
+              subtitle="چیدمان کم‌فاصله‌تر برای لیست جلسه‌ها"
+              value={settings.app.compactCards}
+              onValueChange={(value) => void saveSettings({ ...settings, app: { ...settings.app, compactCards: value } })}
+            />
+            <View style={styles.divider} />
+            <SettingRow
+              title="تحلیل فقط اقدام معوق"
+              subtitle="داشبورد تحلیل فقط جلسه‌های دارای اقدام معوق را نشان دهد"
+              value={settings.app.analyticsShowOverdueOnly}
+              onValueChange={(value) => void saveSettings({ ...settings, app: { ...settings.app, analyticsShowOverdueOnly: value } })}
+            />
 
-            <Text style={styles.sectionLabel}>مدت پیش‌فرض جلسه جدید</Text>
-            <View style={styles.minutesRow}>
+            <Text style={[styles.sectionLabel, isSmall && styles.sectionLabelSmall]}>مدت پیش‌فرض جلسه جدید</Text>
+            <View style={styles.chipsRow}>
               {DEFAULT_DURATION_OPTIONS.map((duration) => {
                 const selected = settings.app.defaultMeetingDurationMinutes === duration;
                 return (
                   <Pressable
                     key={duration}
-                    style={[styles.minuteButton, selected ? styles.minuteButtonActive : null]}
-                    onPress={() =>
-                      void saveSettings({
-                        ...settings,
-                        app: { ...settings.app, defaultMeetingDurationMinutes: duration },
-                      })
-                    }
+                    style={[styles.chip, selected ? styles.chipActive : null]}
+                    onPress={() => void saveSettings({ ...settings, app: { ...settings.app, defaultMeetingDurationMinutes: duration } })}
                   >
-                    <Text style={[styles.minuteText, selected ? styles.minuteTextActive : null]}>{duration} دقیقه</Text>
+                    <Text style={[styles.chipText, selected ? styles.chipTextActive : null]}>{duration}</Text>
                   </Pressable>
                 );
               })}
             </View>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>اعلان‌ها و یادآورها</Text>
-            <View style={styles.row}>
-              <View style={styles.rowTextWrap}>
-                <Text style={styles.rowTitle}>یادآوری قبل از جلسه</Text>
-                <Text style={styles.rowSubtitle}>برای جلسه‌های آینده اعلان زمان‌بندی شود</Text>
-              </View>
-              <Switch
-                value={settings.reminders.preMeetingEnabled}
-                onValueChange={(value) =>
-                  void saveSettings({ ...settings, reminders: { ...settings.reminders, preMeetingEnabled: value } })
-                }
-                thumbColor={colors.surfaceElevated}
-                trackColor={{ false: '#CCC4B3', true: colors.accent }}
-              />
+          <View style={[styles.card, isSmall && styles.cardSmall]}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>🔔 اعلان‌ها و یادآورها</Text>
             </View>
+            <SettingRow
+              title="یادآوری قبل از جلسه"
+              subtitle="برای جلسه‌های آینده اعلان زمان‌بندی شود"
+              value={settings.reminders.preMeetingEnabled}
+              onValueChange={(value) => void saveSettings({ ...settings, reminders: { ...settings.reminders, preMeetingEnabled: value } })}
+            />
 
-            <Text style={styles.sectionLabel}>زمان یادآوری</Text>
-            <View style={styles.minutesRow}>
+            <Text style={[styles.sectionLabel, isSmall && styles.sectionLabelSmall]}>زمان یادآوری</Text>
+            <View style={styles.chipsRow}>
               {PRE_MEETING_MINUTES.map((minute) => {
                 const selected = settings.reminders.preMeetingMinutes === minute;
                 return (
                   <Pressable
                     key={minute}
-                    style={[styles.minuteButton, selected ? styles.minuteButtonActive : null]}
-                    onPress={() =>
-                      void saveSettings({
-                        ...settings,
-                        reminders: { ...settings.reminders, preMeetingMinutes: minute },
-                      })
-                    }
+                    style={[styles.chip, selected ? styles.chipActive : null]}
+                    onPress={() => void saveSettings({ ...settings, reminders: { ...settings.reminders, preMeetingMinutes: minute } })}
                   >
-                    <Text style={[styles.minuteText, selected ? styles.minuteTextActive : null]}>{minute} دقیقه</Text>
+                    <Text style={[styles.chipText, selected ? styles.chipTextActive : null]}>{minute}</Text>
                   </Pressable>
                 );
               })}
             </View>
 
-            <View style={styles.row}>
-              <View style={styles.rowTextWrap}>
-                <Text style={styles.rowTitle}>اعلان آماده شدن خلاصه</Text>
-                <Text style={styles.rowSubtitle}>وقتی خلاصه جدید ثبت شود به شما اطلاع می‌دهد</Text>
-              </View>
-              <Switch
-                value={settings.reminders.summaryReadyEnabled}
-                onValueChange={(value) =>
-                  void saveSettings({ ...settings, reminders: { ...settings.reminders, summaryReadyEnabled: value } })
-                }
-                thumbColor={colors.surfaceElevated}
-                trackColor={{ false: '#CCC4B3', true: colors.accent }}
-              />
-            </View>
-
-            <View style={styles.row}>
-              <View style={styles.rowTextWrap}>
-                <Text style={styles.rowTitle}>هشدار اقدام‌های معوق</Text>
-                <Text style={styles.rowSubtitle}>روزانه اقدام‌های عقب‌افتاده را یادآوری می‌کند</Text>
-              </View>
-              <Switch
-                value={settings.reminders.overdueActionsEnabled}
-                onValueChange={(value) =>
-                  void saveSettings({ ...settings, reminders: { ...settings.reminders, overdueActionsEnabled: value } })
-                }
-                thumbColor={colors.surfaceElevated}
-                trackColor={{ false: '#CCC4B3', true: colors.accent }}
-              />
-            </View>
+            <View style={styles.divider} />
+            <SettingRow
+              title="اعلان آماده شدن خلاصه"
+              subtitle="وقتی خلاصه جدید ثبت شود به شما اطلاع می‌دهد"
+              value={settings.reminders.summaryReadyEnabled}
+              onValueChange={(value) => void saveSettings({ ...settings, reminders: { ...settings.reminders, summaryReadyEnabled: value } })}
+            />
+            <View style={styles.divider} />
+            <SettingRow
+              title="هشدار اقدام‌های معوق"
+              subtitle="روزانه اقدام‌های عقب‌افتاده را یادآوری می‌کند"
+              value={settings.reminders.overdueActionsEnabled}
+              onValueChange={(value) => void saveSettings({ ...settings, reminders: { ...settings.reminders, overdueActionsEnabled: value } })}
+            />
           </View>
 
-          <View style={[styles.card, styles.dangerCard]}>
-            <Text style={styles.sectionTitle}>خروج و حذف حساب</Text>
-            <Pressable style={styles.secondaryButton} onPress={() => void logout()}>
+          <View style={[styles.card, styles.dangerCard, isSmall && styles.cardSmall]}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.danger }]}>⚠️ خروج و حذف حساب</Text>
+            </View>
+            <Pressable
+              style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
+              onPress={() => void logout()}
+            >
               <Text style={styles.secondaryButtonText}>خروج از حساب</Text>
             </Pressable>
-            <Pressable style={styles.dangerButton} onPress={onDeleteAccount}>
+            <Pressable
+              style={({ pressed }) => [styles.dangerButton, pressed && styles.buttonPressed]}
+              onPress={onDeleteAccount}
+            >
               <Text style={styles.dangerButtonText}>حذف دائمی حساب</Text>
             </Pressable>
           </View>
@@ -369,24 +352,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
-    flexGrow: 1,
+    paddingBottom: 40,
   },
   centeredContainer: {
-    width: CONTAINER_WIDTH,
-    maxWidth: CONTAINER_MAX_WIDTH,
+    width: '100%',
     alignSelf: 'center',
-    padding: isDesktop ? 20 : 16,
+    padding: 16,
     paddingBottom: 30,
-    gap: 12,
+    gap: 14,
   },
   heroCard: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 20,
-    backgroundColor: colors.surfaceElevated,
-    padding: isDesktop ? 20 : 16,
+    backgroundColor: colors.surface,
+    padding: 18,
     gap: 4,
+  },
+  heroCardSmall: {
+    padding: 14,
   },
   kicker: {
     fontSize: 11,
@@ -395,9 +383,12 @@ const styles = StyleSheet.create({
     fontFamily: typography.bold,
   },
   title: {
-    fontSize: isDesktop ? 32 : 28,
+    fontSize: 26,
     color: colors.textPrimary,
     fontFamily: typography.bold,
+  },
+  titleSmall: {
+    fontSize: 22,
   },
   subtitle: {
     fontSize: 14,
@@ -407,13 +398,22 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
-    backgroundColor: colors.surfaceElevated,
-    padding: isDesktop ? 18 : 14,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    padding: 18,
+    gap: 12,
+  },
+  cardSmall: {
+    padding: 14,
     gap: 10,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   sectionTitle: {
-    fontSize: isDesktop ? 18 : 17,
+    fontSize: 17,
     color: colors.textPrimary,
     fontFamily: typography.bold,
   },
@@ -424,10 +424,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   sectionLabel: {
-    marginTop: 6,
     fontSize: 13,
     color: colors.textSecondary,
     fontFamily: typography.bold,
+    marginTop: 4,
+  },
+  sectionLabelSmall: {
+    fontSize: 12,
   },
   label: {
     fontSize: 13,
@@ -438,18 +441,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: isDesktop ? 14 : 11,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     color: colors.textPrimary,
-    backgroundColor: '#F8F4EB',
+    backgroundColor: colors.background,
     fontFamily: typography.regular,
-    fontSize: 14,
+    fontSize: 15,
     textAlign: 'left',
+    minHeight: 48,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
+  },
+  rowSmall: {
+    gap: 8,
   },
   rowTextWrap: {
     flex: 1,
@@ -460,75 +467,99 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: typography.bold,
   },
+  rowTitleSmall: {
+    fontSize: 14,
+  },
   rowSubtitle: {
     fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 18,
     fontFamily: typography.regular,
   },
-  minutesRow: {
+  rowSubtitleSmall: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  chipsRow: {
     flexDirection: 'row-reverse',
     flexWrap: 'wrap',
     gap: 8,
   },
-  minuteButton: {
+  chip: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 10,
-    backgroundColor: '#F8F4EB',
-    paddingHorizontal: isDesktop ? 16 : 12,
-    paddingVertical: isDesktop ? 10 : 8,
+    backgroundColor: colors.background,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minWidth: 48,
+    alignItems: 'center',
   },
-  minuteButtonActive: {
-    backgroundColor: colors.accentSoft,
-    borderColor: '#BFD9D6',
+  chipActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
-  minuteText: {
+  chipText: {
     color: colors.textPrimary,
     fontFamily: typography.bold,
-    fontSize: isDesktop ? 14 : 13,
+    fontSize: 13,
   },
-  minuteTextActive: {
-    color: colors.accentDark,
+  chipTextActive: {
+    color: '#FFFFFF',
   },
   primaryButton: {
     marginTop: 2,
     backgroundColor: colors.accentDark,
     borderRadius: 12,
-    paddingVertical: isDesktop ? 14 : 12,
+    paddingVertical: 13,
     alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: isDesktop ? 15 : 14,
+    fontSize: 15,
     fontFamily: typography.bold,
   },
   secondaryButton: {
-    backgroundColor: '#F6F2E9',
+    backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
-    paddingVertical: isDesktop ? 14 : 12,
+    paddingVertical: 13,
     alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
   },
   secondaryButtonText: {
     color: colors.textPrimary,
-    fontSize: isDesktop ? 15 : 14,
+    fontSize: 15,
     fontFamily: typography.bold,
   },
   dangerCard: {
-    borderColor: '#E7B8B4',
+    borderColor: '#FECACA',
+    backgroundColor: '#FEF2F2',
   },
   dangerButton: {
     backgroundColor: colors.danger,
     borderRadius: 12,
-    paddingVertical: isDesktop ? 14 : 12,
+    paddingVertical: 13,
     alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
   },
   dangerButtonText: {
     color: '#FFFFFF',
-    fontSize: isDesktop ? 15 : 14,
+    fontSize: 15,
     fontFamily: typography.bold,
+  },
+  buttonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.99 }],
   },
   savingText: {
     textAlign: 'center',

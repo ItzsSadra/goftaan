@@ -1,6 +1,5 @@
-// Analytics screen - shows meeting statistics and insights
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View, Dimensions } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,10 +16,6 @@ type AnalyticsState = {
   meetings: Meeting[];
   summaries: MeetingSummary[];
 };
-
-const { width } = Dimensions.get('window');
-const isDesktop = width > 768;
-const CONTAINER_MAX_WIDTH = 800;
 
 const parseActionItemMeta = (value: string) => {
   const completed = /^\s*(\[x\]|✅)/i.test(value.trim());
@@ -46,6 +41,11 @@ export const AnalyticsScreen = () => {
   const [data, setData] = useState<AnalyticsState>({ meetings: [], summaries: [] });
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
 
+  const { width } = useWindowDimensions();
+  const isDesktop = width > 768;
+  const isSmall = width < 380;
+  const CONTAINER_MAX_WIDTH = 800;
+
   const load = useCallback(
     async (refreshing: boolean) => {
       if (!user) {
@@ -53,27 +53,17 @@ export const AnalyticsScreen = () => {
         setIsLoading(false);
         return;
       }
-
       try {
-        if (refreshing) {
-          setIsRefreshing(true);
-        } else {
-          setIsLoading(true);
-        }
-
+        if (refreshing) setIsRefreshing(true);
+        else setIsLoading(true);
         setError(null);
         const appSettings = await settingsService.getAppSettings();
         setShowOverdueOnly(appSettings.analyticsShowOverdueOnly);
         const meetings = await manualMeetingsService.getAllMeetings(user.id);
         const summaries = await meetingSummaryService.getSummariesByMeetingIds(meetings.map((item) => item.id));
         setData({ meetings, summaries });
-      } catch (loadError) {
-        const message =
-          loadError instanceof Error && loadError.message.trim()
-            ? loadError.message
-            : 'بارگذاری تحلیل‌ها انجام نشد.';
-        // setError(message);
-        setError('به خاطر شرایط فعلی اینترنت قادر به تولید خلاضه نیستیم');
+      } catch {
+        setError('به خاطر شرایط فعلی اینترنت قادر به تولید خلاصه نیستیم');
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
@@ -83,9 +73,7 @@ export const AnalyticsScreen = () => {
   );
 
   useFocusEffect(
-    useCallback(() => {
-      void load(false);
-    }, [load]),
+    useCallback(() => { void load(false); }, [load]),
   );
 
   const stats = useMemo(() => {
@@ -97,15 +85,14 @@ export const AnalyticsScreen = () => {
     const meetings = showOverdueOnly
       ? data.meetings.filter((meeting) => {
           const summary = data.summaries.find((item) => item.meetingId === meeting.id);
-          if (!summary) {
-            return false;
-          }
+          if (!summary) return false;
           return summary.actionItems.some((action) => {
             const parsed = parseActionItemMeta(action);
             return Boolean(parsed.dueDate && !parsed.completed && parsed.dueDate.getTime() < now.getTime());
           });
         })
       : data.meetings;
+
     const summariesByMeeting = new Map(data.summaries.map((summary) => [summary.meetingId, summary]));
     const meetingsWithSummary = meetings.filter((meeting) => summariesByMeeting.has(meeting.id)).length;
     const summaryCoverage = meetings.length ? Math.round((meetingsWithSummary / meetings.length) * 100) : 0;
@@ -163,64 +150,55 @@ export const AnalyticsScreen = () => {
     );
   }
 
+  const metricCards = [
+    { value: stats.totalMeetings, label: 'کل جلسه‌ها', desc: 'تعداد کل جلسات ثبت شده', danger: false },
+    { value: stats.thisWeekCount, label: 'جلسه این هفته', desc: 'جلسات از شنبه تا جمعه', danger: false },
+    { value: `${stats.summaryCoverage}%`, label: 'پوشش خلاصه', desc: 'درصد جلسات دارای خلاصه', danger: false },
+    { value: stats.avgDuration, label: 'میانگین دقیقه', desc: 'میانگین مدت جلسات', danger: false },
+    { value: stats.keyPointsCount, label: 'نکات کلیدی', desc: 'مجموع نکات ثبت شده', danger: false },
+    { value: stats.overdueActions, label: 'اقدام معوق', desc: 'اقدام‌های عقب‌افتاده', danger: stats.overdueActions > 0 },
+  ];
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void load(true)} />}
       >
-        <View style={styles.centeredContainer}>
-          <View style={styles.heroCard}>
+        <View style={[styles.centeredContainer, { maxWidth: CONTAINER_MAX_WIDTH }]}>
+          <View style={[styles.heroCard, isSmall && styles.heroCardSmall]}>
             <Text style={styles.kicker}>تحلیل</Text>
-            <Text style={styles.title}>داشبورد عملکرد</Text>
+            <Text style={[styles.title, isSmall && styles.titleSmall]}>داشبورد عملکرد</Text>
             <Text style={styles.subtitle}>نمای کلی جلسه‌ها، خلاصه‌ها و اقدام‌ها</Text>
           </View>
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.grid}>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{stats.totalMeetings}</Text>
-              <Text style={styles.metricLabel}>کل جلسه‌ها</Text>
-              <Text style={styles.metricDescription}>تعداد کل جلسات ثبت شده</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{stats.thisWeekCount}</Text>
-              <Text style={styles.metricLabel}>جلسه این هفته</Text>
-              <Text style={styles.metricDescription}>جلسات از شنبه تا جمعه</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{stats.summaryCoverage}%</Text>
-              <Text style={styles.metricLabel}>پوشش خلاصه</Text>
-              <Text style={styles.metricDescription}>درصد جلسات دارای خلاصه</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{stats.avgDuration}</Text>
-              <Text style={styles.metricLabel}>میانگین دقیقه</Text>
-              <Text style={styles.metricDescription}>میانگین مدت جلسات برحسب دقیقه</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{stats.keyPointsCount}</Text>
-              <Text style={styles.metricLabel}>نکات کلیدی</Text>
-              <Text style={styles.metricDescription}>مجموع نکات ثبت شده در خلاصه‌ها</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={[styles.metricValue, stats.overdueActions > 0 ? styles.metricDanger : null]}>
-                {stats.overdueActions}
-              </Text>
-              <Text style={styles.metricLabel}>اقدام معوق</Text>
-              <Text style={styles.metricDescription}>اقدام‌های عقب‌افتاده از مهلت</Text>
-            </View>
+            {metricCards.map((card, index) => (
+              <View key={index} style={[styles.metricCard, (isSmall || width < 500) && styles.metricCardFull]}>
+                <Text style={[styles.metricValue, card.danger ? styles.metricDanger : null]}>
+                  {card.value}
+                </Text>
+                <Text style={styles.metricLabel}>{card.label}</Text>
+                <Text style={styles.metricDescription}>{card.desc}</Text>
+              </View>
+            ))}
           </View>
 
-          <View style={styles.chartCard}>
+          <View style={[styles.chartCard, isSmall && styles.chartCardSmall]}>
             <Text style={styles.chartTitle}>۷ روز آینده</Text>
             <Text style={styles.chartDescription}>تعداد جلسات در هر روز از امروز به بعد</Text>
             <View style={styles.barRow}>
               {stats.upcoming7Days.map((count, index) => (
-                <View style={styles.barItem} key={`day-${index}`}>
-                  <View style={[styles.bar, { height: Math.max(8, count * 12) }]} />
-                  <Text style={styles.barLabel}>{count}</Text>
+                <View style={[styles.barItem, isSmall && styles.barItemSmall]} key={`day-${index}`}>
+                  <View style={[styles.bar, { height: Math.max(8, count * 12) }, isSmall && styles.barSmall]} />
+                  <Text style={[styles.barLabel, isSmall && styles.barLabelSmall]}>{count}</Text>
                 </View>
               ))}
             </View>
@@ -241,24 +219,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
-    flexGrow: 1,
+    paddingBottom: 40,
   },
   centeredContainer: {
     width: '100%',
-    maxWidth: CONTAINER_MAX_WIDTH,
     alignSelf: 'center',
-    padding: isDesktop ? 20 : 16,
+    padding: 16,
     paddingBottom: 26,
-    gap: 12,
+    gap: 14,
   },
   heroCard: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 20,
-    backgroundColor: colors.surfaceElevated,
-    padding: 16,
+    backgroundColor: colors.surface,
+    padding: 18,
     gap: 4,
+  },
+  heroCardSmall: {
+    padding: 14,
   },
   kicker: {
     fontSize: 11,
@@ -267,14 +250,24 @@ const styles = StyleSheet.create({
     fontFamily: typography.bold,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     color: colors.textPrimary,
     fontFamily: typography.bold,
+  },
+  titleSmall: {
+    fontSize: 22,
   },
   subtitle: {
     fontSize: 14,
     color: colors.textSecondary,
     fontFamily: typography.regular,
+  },
+  errorBox: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
   errorText: {
     color: colors.danger,
@@ -284,17 +277,20 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
     gap: 10,
   },
   metricCard: {
-    width: isDesktop ? '32%' : '48.5%',
+    width: '31.5%',
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 16,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: colors.surface,
     padding: 14,
     gap: 4,
+    flexGrow: 1,
+  },
+  metricCardFull: {
+    width: '100%',
   },
   metricValue: {
     fontSize: 28,
@@ -318,10 +314,13 @@ const styles = StyleSheet.create({
   chartCard: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
-    backgroundColor: colors.surfaceElevated,
-    padding: 16,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    padding: 18,
     gap: 12,
+  },
+  chartCardSmall: {
+    padding: 14,
   },
   chartTitle: {
     fontSize: 16,
@@ -339,20 +338,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     minHeight: 94,
+    paddingTop: 8,
   },
   barItem: {
     alignItems: 'center',
     gap: 6,
-    width: isDesktop ? 40 : 30,
+    width: 36,
+  },
+  barItemSmall: {
+    width: 28,
   },
   bar: {
-    width: isDesktop ? 28 : 22,
+    width: 28,
     borderRadius: 8,
     backgroundColor: colors.accent,
+  },
+  barSmall: {
+    width: 20,
   },
   barLabel: {
     fontSize: 11,
     color: colors.textSecondary,
     fontFamily: typography.bold,
+  },
+  barLabelSmall: {
+    fontSize: 10,
   },
 });

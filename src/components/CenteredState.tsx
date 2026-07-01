@@ -1,6 +1,5 @@
-// Empty state component for displaying messages with optional action
 import { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
@@ -12,12 +11,17 @@ type CenteredStateProps = {
 };
 
 export const CenteredState = ({ title, description, action }: CenteredStateProps) => {
+  const { width } = useWindowDimensions();
+  const isSmall = width < 380;
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>{title}</Text>
-        {description ? <Text style={styles.description}>{description}</Text> : null}
-        {action}
+        <Text style={[styles.title, isSmall && styles.titleSmall]}>{title}</Text>
+        {description ? (
+          <Text style={[styles.description, isSmall && styles.descriptionSmall]}>{description}</Text>
+        ) : null}
+        {action ? <View style={styles.actionWrap}>{action}</View> : null}
       </View>
     </View>
   );
@@ -32,12 +36,13 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
+    maxWidth: 420,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
-    backgroundColor: colors.surfaceElevated,
-    padding: 18,
-    gap: 10,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    padding: 24,
+    gap: 12,
     alignItems: 'center',
   },
   title: {
@@ -46,11 +51,22 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: 'center',
   },
+  titleSmall: {
+    fontSize: 17,
+  },
   description: {
-    fontSize: 15,
+    fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     fontFamily: typography.regular,
+  },
+  descriptionSmall: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  actionWrap: {
+    marginTop: 4,
+    width: '100%',
   },
 });
