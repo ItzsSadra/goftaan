@@ -44,7 +44,7 @@ function TabsList({
   return (
     <div
       className={cn(
-        "inline-flex h-11 items-center justify-center rounded-xl bg-surface-elevated p-1 text-text-muted border border-border",
+        "inline-flex h-11 items-center justify-center rounded-xl bg-background-accent border border-border p-[3px] gap-[3px]",
         className
       )}
     >
@@ -68,10 +68,10 @@ function TabsTrigger({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer",
+        "inline-flex items-center justify-center whitespace-nowrap rounded-[10px] px-4 py-2.5 text-[13px] font-bold transition-all duration-200 cursor-pointer flex-1",
         isActive
-          ? "bg-accent text-white shadow-lg shadow-accent/20"
-          : "text-text-muted hover:text-text-primary",
+          ? "bg-surface text-text-primary shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
+          : "text-text-secondary hover:text-text-primary",
         className
       )}
       onClick={() => context.onValueChange(value)}
@@ -94,12 +94,7 @@ function TabsContent({
   if (context.value !== value) return null
 
   return (
-    <div
-      className={cn(
-        "mt-4 animate-in fade-in-up focus-visible:outline-none",
-        className
-      )}
-    >
+    <div className={cn("mt-4", className)}>
       {children}
     </div>
   )

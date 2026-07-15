@@ -47,8 +47,8 @@ function SelectTrigger({
     <button
       type="button"
       className={cn(
-        "flex h-11 w-full items-center justify-between rounded-xl border border-border bg-surface-elevated px-4 py-2.5 text-sm text-text-primary shadow-sm transition-all duration-200 hover:border-border focus:outline-none focus:ring-2 focus:ring-accent/50 cursor-pointer",
-        !value && "text-text-muted",
+        "flex h-12 w-full items-center justify-between rounded-xl border border-border bg-background px-3.5 py-3 text-[15px] text-text-primary transition-colors hover:bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer",
+        !value && "text-text-secondary",
         className
       )}
       onClick={() => setOpen(!open)}
@@ -78,7 +78,7 @@ function SelectContent({
       />
       <div
         className={cn(
-          "absolute z-50 mt-2 max-h-60 w-full overflow-auto rounded-xl border border-border bg-surface shadow-2xl shadow-black/20 animate-in zoom-in-95",
+          "absolute z-50 mt-2 max-h-60 w-full overflow-auto rounded-xl border border-border bg-surface shadow-lg",
           className
         )}
       >
@@ -102,8 +102,8 @@ function SelectItem({
     <button
       type="button"
       className={cn(
-        "flex w-full items-center rounded-lg px-4 py-2.5 text-sm cursor-pointer transition-colors text-text-primary hover:bg-surface-elevated",
-        selected === value && "bg-accent/10 text-accent"
+        "flex w-full items-center rounded-lg mx-1 px-3 py-2.5 text-[15px] cursor-pointer transition-colors text-text-primary hover:bg-background-accent",
+        selected === value && "bg-accent-soft text-accent"
       )}
       onClick={() => {
         onValueChange(value)

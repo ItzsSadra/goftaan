@@ -1,17 +1,32 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowRight, Loader2 } from "lucide-react"
+import { CenteredState } from "@/components/shared/centered-state"
+import { ArrowRight, Loader2, CalendarDays } from "lucide-react"
 
-export default function NewMeetingPage() {
+interface Meeting {
+  id: string
+  title: string
+  location: string
+  notes: string
+  startAt: string
+  endAt: string
+  source: string
+  createdAt: string
+}
+
+export default function EditMeetingPage() {
   const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const params = useParams()
+  const id = params.id as string
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [isSaving, setIsSaving] = React.useState(false)
   const [error, setError] = React.useState("")
 
   const [title, setTitle] = React.useState("")
@@ -21,19 +36,42 @@ export default function NewMeetingPage() {
   const [endTime, setEndTime] = React.useState("")
   const [notes, setNotes] = React.useState("")
 
+  React.useEffect(() => {
+    fetchMeeting()
+  }, [id])
+
+  const fetchMeeting = async () => {
+    try {
+      const res = await fetch(`/api/meetings/${id}`)
+      if (res.ok) {
+        const data = await res.json()
+        const m: Meeting = data.meeting
+        setTitle(m.title)
+        setLocation(m.location || "")
+        const startDate = new Date(m.startAt)
+        const endDate = new Date(m.endAt)
+        setDate(startDate.toISOString().split("T")[0])
+        setStartTime(startDate.toTimeString().slice(0, 5))
+        setEndTime(endDate.toTimeString().slice(0, 5))
+        setNotes(m.notes || "")
+      }
+    } catch {
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
+    setIsSaving(true)
     setError("")
 
     try {
       const startAt = new Date(`${date}T${startTime}`).toISOString()
-      const endAt = endTime
-        ? new Date(`${date}T${endTime}`).toISOString()
-        : new Date(`${date}T${startTime}`).toISOString()
+      const endAt = new Date(`${date}T${endTime}`).toISOString()
 
-      const res = await fetch("/api/meetings", {
-        method: "POST",
+      const res = await fetch(`/api/meetings/${id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
@@ -41,26 +79,32 @@ export default function NewMeetingPage() {
           notes: notes || undefined,
           startAt,
           endAt,
-          source: "manual",
         }),
       })
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error || "خطا در ایجاد جلسه")
+        throw new Error(data.error || "خطا در بروزرسانی جلسه")
       }
 
-      router.push("/meetings")
+      router.push(`/meetings/${id}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "خطا در ایجاد جلسه")
+      setError(err instanceof Error ? err.message : "خطا در بروزرسانی جلسه")
     } finally {
-      setIsSubmitting(false)
+      setIsSaving(false)
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-5 w-5 animate-spin text-text-muted" />
+      </div>
+    )
   }
 
   return (
     <div className="flex flex-col gap-4 pb-4">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.back()}
@@ -68,7 +112,7 @@ export default function NewMeetingPage() {
         >
           <ArrowRight className="h-4 w-4" />
         </button>
-        <h1 className="text-[20px] font-bold text-text-primary">جلسه جدید</h1>
+        <h1 className="text-[20px] font-bold text-text-primary">ویرایش جلسه</h1>
       </div>
 
       {error && (
@@ -151,11 +195,11 @@ export default function NewMeetingPage() {
           </CardContent>
         </Card>
 
-        <Button type="submit" size="lg" disabled={isSubmitting} className="w-full">
-          {isSubmitting ? (
+        <Button type="submit" size="lg" disabled={isSaving} className="w-full">
+          {isSaving ? (
             <Loader2 className="h-4 w-4 animate-spin ml-1" />
           ) : null}
-          ایجاد جلسه
+          بروزرسانی جلسه
         </Button>
       </form>
     </div>

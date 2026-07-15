@@ -3,267 +3,286 @@
 import * as React from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/components/ui/toast"
-import { formatMeetingTime } from "@/lib/utils"
-import type { Meeting, MeetingSummary } from "@/types"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { CenteredState } from "@/components/shared/centered-state"
 import {
   ArrowRight,
-  Mic,
-  MapPin,
   Clock,
+  CalendarDays,
+  MapPin,
   FileText,
+  CheckCircle2,
+  Pencil,
   Trash2,
   Loader2,
-  Key,
-  Zap,
-  CheckCircle2,
+  Download,
 } from "lucide-react"
-import Link from "next/link"
+
+interface Meeting {
+  id: string
+  title: string
+  location: string
+  notes: string
+  startAt: string
+  endAt: string
+  source: string
+  createdAt: string
+}
+
+interface Summary {
+  id: string
+  meetingId: string
+  transcript: string
+  summary: string
+  keyPoints: string[]
+  actionItems: string[]
+  createdAt: string
+}
+
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr)
+  const weekDays = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه"]
+  return `${weekDays[d.getDay()]} ${d.getDate()} ${d.toLocaleDateString("fa-IR", { month: "long" })} ${d.getFullYear()}`
+}
+
+function formatTime(dateStr: string) {
+  return new Date(dateStr).toLocaleTimeString("fa-IR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+function getDuration(startAt: string, endAt: string) {
+  const ms = new Date(endAt).getTime() - new Date(startAt).getTime()
+  return Math.round(ms / 60000)
+}
 
 export default function MeetingDetailPage() {
   const router = useRouter()
   const params = useParams()
-  const { toast } = useToast()
-  const meetingId = params.id as string
-
+  const id = params.id as string
   const [meeting, setMeeting] = React.useState<Meeting | null>(null)
-  const [summary, setSummary] = React.useState<MeetingSummary | null>(null)
+  const [summary, setSummary] = React.useState<Summary | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
-  const [isDeleting, setIsDeleting] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
 
   React.useEffect(() => {
-    async function loadData() {
-      try {
-        const res = await fetch(`/api/meetings/${meetingId}`)
-        if (!res.ok) throw new Error("Failed to load meeting")
-        const data = await res.json()
-        if (data.meeting) setMeeting(data.meeting)
-        if (data.summary) setSummary(data.summary)
-      } catch {
-        // Failed to load
-      } finally {
-        setIsLoading(false)
-      }
-    }
+    fetchMeeting()
+  }, [id])
 
-    loadData()
-  }, [meetingId])
+  const fetchMeeting = async () => {
+    try {
+      const res = await fetch(`/api/meetings/${id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setMeeting(data.meeting)
+        setSummary(data.summary)
+      }
+    } catch {
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleDelete = async () => {
-    if (!confirm("آیا از حذف این جلسه اطمینان دارید؟")) return
-
-    setIsDeleting(true)
+    setDeleting(true)
     try {
-      const response = await fetch(`/api/meetings/${meetingId}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) throw new Error("Failed to delete")
-
-      toast({ title: "جلسه حذف شد", variant: "success" })
-      router.push("/meetings")
+      const res = await fetch(`/api/meetings/${id}`, { method: "DELETE" })
+      if (res.ok) router.push("/meetings")
     } catch {
-      toast({ title: "خطا در حذف جلسه", variant: "destructive" })
-    } finally {
-      setIsDeleting(false)
+      setDeleting(false)
     }
   }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-5 w-5 animate-spin text-text-muted" />
       </div>
     )
   }
 
   if (!meeting) {
     return (
-      <div className="text-center py-24">
-        <p className="text-text-muted">جلسه یافت نشد</p>
-        <Button variant="ghost" onClick={() => router.push("/meetings")} className="mt-4">
-          بازگشت
-        </Button>
-      </div>
+      <CenteredState
+        icon={CalendarDays}
+        title="جلسه یافت نشد"
+        description="این جلسه ممکن است حذف شده باشد."
+        action={
+          <Button onClick={() => router.push("/meetings")}>
+            بازگشت به لیست
+          </Button>
+        }
+      />
     )
   }
 
-  const now = new Date()
-  const isPast = new Date(meeting.endAt) < now
+  const isPast = new Date(meeting.endAt) < new Date()
 
   return (
-    <div className="max-w-lg mx-auto space-y-5 sm:space-y-6">
+    <div className="flex flex-col gap-4 pb-4">
       {/* Header */}
-      <div className="flex items-center gap-3 animate-in fade-in-up">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowRight className="h-5 w-5" />
-        </Button>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => router.back()}
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-background-accent transition-colors cursor-pointer"
+        >
+          <ArrowRight className="h-4 w-4" />
+        </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight truncate">
-            {meeting.title}
-          </h1>
-          <div className="flex items-center gap-2 mt-1.5">
-            <Badge
-              variant={
-                isPast
-                  ? "secondary"
-                  : meeting.source === "manual"
-                    ? "success"
-                    : "default"
-              }
-            >
-              {isPast ? "گذشته" : meeting.source === "manual" ? "دستی" : "تقویم"}
+          <h1 className="text-[20px] font-bold text-text-primary truncate">{meeting.title}</h1>
+          <div className="flex items-center gap-2 mt-1">
+            <Badge variant={isPast ? "secondary" : "default"}>
+              {isPast ? "برگزار شده" : "پیش رو"}
             </Badge>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(`/meetings/${id}/edit`)}
+          >
+            <Pencil className="h-3.5 w-3.5 ml-1" />
+            ویرایش
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            {deleting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </div>
       </div>
 
-      {/* Meeting Info */}
-      <Card className="animate-in fade-in-up stagger-1">
-        <CardContent className="p-5 sm:p-6">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2.5 text-sm text-text-secondary">
-              <Clock className="h-4 w-4 shrink-0 text-text-muted" />
-              <span>{formatMeetingTime(meeting.startAt, meeting.endAt)}</span>
-            </div>
-            {meeting.location && (
-              <div className="flex items-center gap-2.5 text-sm text-text-secondary">
-                <MapPin className="h-4 w-4 shrink-0 text-text-muted" />
-                <span>{meeting.location}</span>
-              </div>
-            )}
-            {meeting.notes && (
-              <div className="flex items-start gap-2.5 text-sm text-text-secondary">
-                <FileText className="h-4 w-4 shrink-0 mt-0.5 text-text-muted" />
-                <span className="whitespace-pre-wrap leading-relaxed">{meeting.notes}</span>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Meta */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-[14px] bg-surface border border-border p-3 flex flex-col items-center gap-1.5">
+          <CalendarDays className="h-4 w-4 text-text-muted" />
+          <span className="text-[12px] text-text-secondary">{formatDate(meeting.startAt)}</span>
+        </div>
+        <div className="rounded-[14px] bg-surface border border-border p-3 flex flex-col items-center gap-1.5">
+          <Clock className="h-4 w-4 text-text-muted" />
+          <span className="text-[12px] text-text-secondary">
+            {formatTime(meeting.startAt)} – {formatTime(meeting.endAt)}
+          </span>
+        </div>
+        <div className="rounded-[14px] bg-surface border border-border p-3 flex flex-col items-center gap-1.5">
+          <Clock className="h-4 w-4 text-text-muted" />
+          <span className="text-[12px] text-text-secondary">{getDuration(meeting.startAt, meeting.endAt)} دقیقه</span>
+        </div>
+      </div>
 
-      {/* Recording */}
-      {!isPast && (
-        <Card className="animate-in fade-in-up stagger-2">
+      {/* Location */}
+      {meeting.location && (
+        <div className="rounded-[14px] bg-surface border border-border p-4 flex items-center gap-3">
+          <MapPin className="h-4 w-4 text-text-muted" />
+          <span className="text-[14px] text-text-primary">{meeting.location}</span>
+        </div>
+      )}
+
+      {/* Notes */}
+      {meeting.notes && (
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 border border-accent/20">
-                <Mic className="h-4 w-4 text-accent" />
-              </div>
-              <span>ضبط صدا</span>
+            <CardTitle className="flex items-center gap-2 text-[15px]">
+              <FileText className="h-4 w-4 text-accent" />
+              یادداشت‌ها
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-text-muted mb-5 leading-relaxed">
-              صدای جلسه را ضبط کنید تا با هوش مصنوعی تبدیل به متن و خلاصه شود.
-            </p>
-            <Link href={`/meetings/${meetingId}/recording`}>
-              <Button className="w-full" size="lg">
-                <Mic className="h-4 w-4 ml-2" />
-                شروع ضبط
-              </Button>
-            </Link>
+            <p className="text-[14px] text-text-primary leading-7 whitespace-pre-line">{meeting.notes}</p>
           </CardContent>
         </Card>
       )}
 
-      {/* AI Summary */}
-      {summary && (
-        <Card className="animate-in fade-in-up stagger-3">
+      {/* Summary */}
+      {summary?.summary && (
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-warning/15 border border-warning/20">
-                <Zap className="h-4 w-4 text-warning" />
-              </div>
-              <span>خلاصه هوشمند</span>
+            <CardTitle className="flex items-center gap-2 text-[15px]">
+              <FileText className="h-4 w-4 text-accent" />
+              خلاصه جلسه
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5">
-            {summary.transcript && (
-              <div>
-                <h4 className="text-xs font-semibold text-text-muted mb-2.5 uppercase tracking-wider">
-                  متن پیاده‌شده
-                </h4>
-                <div className="p-4 rounded-xl bg-surface-elevated/50 border border-border text-sm text-text-secondary max-h-40 overflow-y-auto leading-relaxed">
-                  {summary.transcript}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <h4 className="text-xs font-semibold text-text-muted mb-2.5 uppercase tracking-wider">
-                خلاصه
-              </h4>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                {summary.summary}
-              </p>
-            </div>
-
-            {summary.keyPoints.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-text-muted mb-3 uppercase tracking-wider flex items-center gap-2">
-                  <Key className="h-3.5 w-3.5 text-accent" />
-                  نکات کلیدی
-                </h4>
-                <ul className="space-y-2">
-                  {summary.keyPoints.map((point, i) => (
-                    <li
-                      key={i}
-                      className="flex items-start gap-2.5 text-sm text-text-secondary"
-                    >
-                      <span className="text-accent mt-1.5 text-xs">●</span>
-                      <span className="leading-relaxed">{point}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {summary.actionItems.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-text-muted mb-3 uppercase tracking-wider flex items-center gap-2">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-warning" />
-                  اقدام‌ها
-                </h4>
-                <ul className="space-y-2">
-                  {summary.actionItems.map((item, i) => (
-                    <li
-                      key={i}
-                      className="flex items-start gap-2.5 text-sm text-text-secondary"
-                    >
-                      <span className="text-warning mt-1.5 text-xs">●</span>
-                      <span className="leading-relaxed">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+          <CardContent>
+            <p className="text-[14px] text-text-primary leading-7 whitespace-pre-line">{summary.summary}</p>
           </CardContent>
         </Card>
       )}
 
-      {/* Delete */}
-      {meeting.source === "manual" && (
-        <Card className="border-danger/20 animate-in fade-in-up stagger-4">
-          <CardContent className="p-5 sm:p-6">
-            <Button
-              variant="destructive"
-              className="w-full"
-              size="lg"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4 ml-2" />
-                  حذف جلسه
-                </>
-              )}
-            </Button>
+      {/* Key Points */}
+      {summary?.keyPoints && summary.keyPoints.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-[15px]">
+              <CheckCircle2 className="h-4 w-4 text-success" />
+              نکات کلیدی
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {summary.keyPoints.map((point, i) => (
+                <li key={i} className="flex items-start gap-2 text-[14px] text-text-primary">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-success shrink-0" />
+                  {point}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Action Items */}
+      {summary?.actionItems && summary.actionItems.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-[15px]">
+              <Pencil className="h-4 w-4 text-warning" />
+              وظایف
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {summary.actionItems.map((item, i) => (
+                <li key={i} className="flex items-start gap-2 text-[14px] text-text-primary">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-warning shrink-0" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Transcript */}
+      {summary?.transcript && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-[15px]">
+              <FileText className="h-4 w-4 text-text-muted" />
+              متن کامل جلسه
+            </CardTitle>
+            <a href={`/api/meetings/${id}/transcript`} download>
+              <Button variant="outline" size="sm">
+                <Download className="h-3.5 w-3.5 ml-1" />
+                دانلود
+              </Button>
+            </a>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-60 overflow-auto rounded-xl bg-background p-4 border border-border">
+              <p className="text-[13px] text-text-secondary leading-6 whitespace-pre-line font-mono">
+                {summary.transcript}
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}

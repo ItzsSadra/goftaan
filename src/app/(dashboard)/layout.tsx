@@ -16,10 +16,10 @@ export default async function DashboardLayout({
 
   return (
     <ToastProvider>
-      <div className="flex min-h-screen bg-mesh">
+      <div className="flex min-h-screen bg-background">
         <Sidebar />
-        <main className="flex-1 lg:mr-0 pb-24 lg:pb-0 min-w-0">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-8 lg:px-8">
+        <main className="flex-1 lg:mr-0 pb-28 lg:pb-0 min-w-0">
+          <div className="max-w-[800px] mx-auto px-4 sm:px-5 py-3">
             {children}
           </div>
         </main>

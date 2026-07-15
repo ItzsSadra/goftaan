@@ -1,160 +1,153 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MeetingCard } from "@/components/meetings/meeting-card"
 import { CenteredState } from "@/components/shared/centered-state"
-import { useMeetings } from "@/hooks/use-meetings"
-import { useToast } from "@/components/ui/toast"
-import {
-  CalendarDays,
-  Plus,
-  RefreshCw,
-  Loader2,
-  CalendarOff,
-} from "lucide-react"
-import Link from "next/link"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { CalendarDays, Plus, Loader2 } from "lucide-react"
+
+interface Meeting {
+  id: string
+  title: string
+  location: string
+  notes: string
+  startAt: string
+  endAt: string
+  source: string
+  createdAt: string
+}
+
+interface Summary {
+  id: string
+  meetingId: string
+  transcript: string
+  summary: string
+  keyPoints: string[]
+  actionItems: string[]
+  createdAt: string
+}
 
 export default function MeetingsPage() {
-  const { upcoming, past, summaries, isLoading, error, refresh, deleteMeeting } =
-    useMeetings()
-  const { toast } = useToast()
-  const [isRefreshing, setIsRefreshing] = React.useState(false)
+  const router = useRouter()
+  const [upcoming, setUpcoming] = React.useState<Meeting[]>([])
+  const [past, setPast] = React.useState<Meeting[]>([])
+  const [summaries, setSummaries] = React.useState<Record<string, Summary>>({})
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [activeTab, setActiveTab] = React.useState("all")
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true)
-    await refresh()
-    setIsRefreshing(false)
-  }
+  React.useEffect(() => {
+    fetchMeetings()
+  }, [])
 
-  const handleDelete = async (id: string) => {
-    if (confirm("آیا از حذف این جلسه اطمینان دارید؟")) {
-      await deleteMeeting(id)
-      toast({ title: "جلسه حذف شد", variant: "success" })
+  const fetchMeetings = async () => {
+    try {
+      const res = await fetch("/api/meetings")
+      if (res.ok) {
+        const data = await res.json()
+        setUpcoming(data.upcoming || [])
+        setPast(data.past || [])
+        setSummaries(data.summaries || {})
+      }
+    } catch {
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
-      </div>
-    )
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/meetings/${id}`, { method: "DELETE" })
+      if (res.ok) {
+        setUpcoming((prev) => prev.filter((m) => m.id !== id))
+        setPast((prev) => prev.filter((m) => m.id !== id))
+      }
+    } catch {
+    }
   }
 
-  if (error) {
+  const allMeetings = [...upcoming, ...past]
+
+  const filtered = (() => {
+    switch (activeTab) {
+      case "upcoming":
+        return upcoming
+      case "past":
+        return past
+      default:
+        return allMeetings
+    }
+  })()
+
+  if (isLoading) {
     return (
-      <CenteredState
-        title="خطا در بارگذاری"
-        description={error}
-        icon={<CalendarOff className="h-16 w-16" />}
-        action={
-          <Button onClick={handleRefresh} variant="outline">
-            <RefreshCw className="h-4 w-4 ml-2" />
-            تلاش مجدد
-          </Button>
-        }
-      />
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-5 w-5 animate-spin text-text-muted" />
+      </div>
     )
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between animate-in fade-in-up">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">
-            جلسه‌ها
-          </h1>
-          <p className="text-sm text-text-muted mt-1">
-            {upcoming.length + past.length} جلسه
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-            />
-          </Button>
-          <Link href="/meetings/new" className="hidden sm:block">
-            <Button>
-              <Plus className="h-4 w-4 ml-2" />
-              جلسه جدید
-            </Button>
-          </Link>
-        </div>
+    <div className="flex flex-col gap-5 pb-4">
+      {/* Hero card */}
+      <div className="rounded-[20px] bg-surface border border-border p-5 sm:p-6 flex flex-col gap-2">
+        <p className="text-[13px] font-bold text-accent">جلسات من</p>
+        <h1 className="text-[26px] sm:text-[30px] font-bold text-text-primary leading-10">
+          لیست جلسات
+        </h1>
+        <p className="text-[14px] text-text-secondary leading-5">
+          {allMeetings.length > 0
+            ? `${allMeetings.length} جلسه ثبت شده`
+            : "هنوز جلسه‌ای ثبت نشده"}
+        </p>
       </div>
 
-      {/* Tabs */}
-      <div className="animate-in fade-in-up stagger-1">
-        <Tabs defaultValue="upcoming">
+      {/* Tabs + Filter */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex items-center justify-between">
           <TabsList>
-            <TabsTrigger value="upcoming">
-              پیش رو ({upcoming.length})
-            </TabsTrigger>
-            <TabsTrigger value="past">
-              گذشته ({past.length})
-            </TabsTrigger>
+            <TabsTrigger value="all">همه</TabsTrigger>
+            <TabsTrigger value="upcoming">پیش رو</TabsTrigger>
+            <TabsTrigger value="past">برگزار شده</TabsTrigger>
           </TabsList>
+        </div>
 
-          <TabsContent value="upcoming">
-            {upcoming.length === 0 ? (
-              <CenteredState
-                title="جلسه‌ای پیش رو نیست"
-                description="با کلیک روی دکمه زیر یک جلسه جدید اضافه کنید"
-                icon={<CalendarDays className="h-16 w-16" />}
-                action={
-                  <Link href="/meetings/new">
-                    <Button>
-                      <Plus className="h-4 w-4 ml-2" />
-                      افزودن جلسه
-                    </Button>
-                  </Link>
-                }
-              />
-            ) : (
-              <div className="space-y-3">
-                {upcoming.map((meeting, i) => (
-                  <div key={meeting.id} className={`animate-in fade-in-up stagger-${Math.min(i + 1, 6)}`}>
-                    <MeetingCard
-                      meeting={meeting}
-                      onDelete={handleDelete}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+        <TabsContent value={activeTab}>
+          {filtered.length === 0 ? (
+            <CenteredState
+              icon={CalendarDays}
+              title={activeTab === "all" ? "جلسه‌ای وجود ندارد" : "جلسه‌ای در این دسته نیست"}
+              description="اولین جلسه خود را اضافه کنید."
+              action={
+                <Button onClick={() => router.push("/meetings/new")}>
+                  <Plus className="h-4 w-4 ml-1" />
+                  اضافه کردن جلسه
+                </Button>
+              }
+            />
+          ) : (
+            <div className="flex flex-col gap-3 mt-4">
+              {filtered.map((meeting) => (
+                <MeetingCard
+                  key={meeting.id}
+                  meeting={meeting}
+                  summary={summaries[meeting.id]}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
-          <TabsContent value="past">
-            {past.length === 0 ? (
-              <CenteredState
-                title="جلسه گذشته‌ای وجود ندارد"
-                description="جلسات گذشته اینجا نمایش داده می‌شوند"
-                icon={<CalendarDays className="h-16 w-16" />}
-              />
-            ) : (
-              <div className="space-y-3">
-                {past.map((meeting, i) => (
-                  <div key={meeting.id} className={`animate-in fade-in-up stagger-${Math.min(i + 1, 6)}`}>
-                    <MeetingCard
-                      meeting={meeting}
-                      summary={summaries[meeting.id]}
-                      onDelete={handleDelete}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
+      {/* FAB */}
+      <button
+        onClick={() => router.push("/meetings/new")}
+        className="fixed bottom-24 lg:bottom-8 left-4 sm:left-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg hover:bg-accent-dark transition-all duration-200 active:scale-95 cursor-pointer"
+      >
+        <Plus className="h-5 w-5" />
+      </button>
     </div>
   )
 }

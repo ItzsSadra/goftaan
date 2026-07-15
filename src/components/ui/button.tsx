@@ -3,27 +3,31 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer select-none active:scale-[0.97]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-bold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer select-none active:scale-[0.99] active:opacity-90",
   {
     variants: {
       variant: {
         default:
-          "bg-accent text-white shadow-lg shadow-accent/20 hover:bg-accent-dark hover:shadow-xl hover:shadow-accent/25",
+          "bg-accent text-white hover:bg-accent-dark",
         destructive:
-          "bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20 hover:border-danger/30",
+          "bg-danger text-white hover:bg-danger/90",
+        "destructive-outline":
+          "bg-danger-bg text-danger border border-danger-border hover:bg-danger/10",
         outline:
-          "border border-border bg-transparent text-text-primary hover:bg-surface-elevated hover:border-border",
+          "border border-border bg-background text-text-primary hover:bg-surface",
         secondary:
-          "bg-surface-elevated text-text-primary border border-border hover:bg-surface-elevated/80",
+          "bg-background border border-border text-text-primary hover:bg-surface",
         ghost:
-          "text-text-secondary hover:bg-surface-elevated hover:text-text-primary",
+          "text-text-secondary hover:bg-background-accent hover:text-text-primary",
         link: "text-accent underline-offset-4 hover:underline",
+        success:
+          "bg-success text-white hover:bg-success/90",
       },
       size: {
         default: "h-10 px-4 py-2",
-        sm: "h-8 rounded-lg px-3 text-xs",
-        lg: "h-12 rounded-xl px-8 text-base",
-        xl: "h-14 rounded-2xl px-10 text-base font-semibold",
+        sm: "h-9 rounded-lg px-3 text-xs",
+        lg: "h-12 px-6 text-sm",
+        xl: "h-[50px] rounded-xl px-8 text-[15px]",
         icon: "h-10 w-10",
       },
     },

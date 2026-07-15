@@ -65,6 +65,72 @@ export async function GET(
   }
 }
 
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const userId = await getCurrentUserId()
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { title, location, notes, startAt, endAt } = body
+
+    const db = getDb()
+    const { data: meeting, error: fetchError } = await db
+      .from("meetings")
+      .select("id")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .single()
+
+    if (fetchError || !meeting) {
+      return NextResponse.json({ error: "Meeting not found" }, { status: 404 })
+    }
+
+    const updateData: Record<string, unknown> = {}
+    if (title !== undefined) updateData.title = title
+    if (location !== undefined) updateData.location = location
+    if (notes !== undefined) updateData.notes = notes
+    if (startAt !== undefined) updateData.start_at = startAt
+    if (endAt !== undefined) updateData.end_at = endAt
+
+    const { data, error } = await db
+      .from("meetings")
+      .update(updateData)
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    return NextResponse.json({
+      meeting: {
+        id: data.id,
+        userId: data.user_id,
+        title: data.title,
+        location: data.location || "",
+        notes: data.notes || "",
+        startAt: data.start_at,
+        endAt: data.end_at,
+        source: data.source,
+        createdAt: data.created_at,
+      },
+    })
+  } catch {
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }

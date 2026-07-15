@@ -1,17 +1,15 @@
 "use client"
 
 import * as React from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { useToast } from "@/components/ui/toast"
+import { Card, CardContent } from "@/components/ui/card"
+import { CenteredState } from "@/components/shared/centered-state"
 import {
   CalendarDays,
-  TrendingUp,
-  FileText,
   Clock,
-  Key,
-  AlertTriangle,
-  RefreshCw,
+  TrendingUp,
+  BarChart3,
+  CheckCircle2,
+  AlertCircle,
   Loader2,
 } from "lucide-react"
 
@@ -26,148 +24,151 @@ interface AnalyticsData {
 }
 
 export default function AnalyticsPage() {
-  const { toast } = useToast()
   const [data, setData] = React.useState<AnalyticsData | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
 
-  const loadData = React.useCallback(async () => {
+  React.useEffect(() => {
+    fetchAnalytics()
+  }, [])
+
+  const fetchAnalytics = async () => {
     try {
-      setIsLoading(true)
       const res = await fetch("/api/analytics")
-      if (!res.ok) throw new Error("Failed to load analytics")
-      const json = await res.json()
-      setData(json)
+      if (res.ok) {
+        setData(await res.json())
+      }
     } catch {
-      toast({ title: "خطا در بارگذاری", variant: "destructive" })
     } finally {
       setIsLoading(false)
     }
-  }, [toast])
+  }
 
-  React.useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-5 w-5 animate-spin text-text-muted" />
       </div>
     )
   }
 
-  const maxCount = Math.max(...data.next7Days.map((d) => d.count), 1)
+  if (!data) {
+    return (
+      <CenteredState
+        icon={BarChart3}
+        title="داده‌ای موجود نیست"
+        description="اطلاعات تحلیلی هنوز در دسترس نیست."
+      />
+    )
+  }
 
   const metrics = [
     {
-      title: "کل جلسه‌ها",
-      value: data.totalMeetings,
       icon: CalendarDays,
+      label: "کل جلسات",
+      value: data.totalMeetings,
       color: "text-accent",
-      bg: "bg-accent/10",
-      border: "border-accent/15",
+      bg: "bg-accent-soft",
     },
     {
-      title: "جلسه این هفته",
-      value: data.thisWeekMeetings,
-      icon: TrendingUp,
-      color: "text-success",
-      bg: "bg-success/10",
-      border: "border-success/15",
-    },
-    {
-      title: "پوشش خلاصه",
-      value: `${data.summaryCoverage}%`,
-      icon: FileText,
-      color: "text-purple-400",
-      bg: "bg-purple-400/10",
-      border: "border-purple-400/15",
-    },
-    {
-      title: "میانگین دقیقه",
-      value: data.avgDuration,
       icon: Clock,
-      color: "text-blue-400",
-      bg: "bg-blue-400/10",
-      border: "border-blue-400/15",
+      label: "میانگین مدت",
+      value: `${data.avgDuration} دقیقه`,
+      color: "text-success",
+      bg: "bg-success-bg",
     },
     {
-      title: "نکات کلیدی",
-      value: data.totalKeyPoints,
-      icon: Key,
+      icon: TrendingUp,
+      label: "جلسات این هفته",
+      value: data.thisWeekMeetings,
       color: "text-warning",
-      bg: "bg-warning/10",
-      border: "border-warning/15",
+      bg: "bg-amber-50",
     },
     {
-      title: "اقدام معوق",
-      value: data.overdueActions,
-      icon: AlertTriangle,
-      color: data.overdueActions > 0 ? "text-danger" : "text-text-muted",
-      bg: data.overdueActions > 0 ? "bg-danger/10" : "bg-surface-elevated",
-      border: data.overdueActions > 0 ? "border-danger/15" : "border-border",
+      icon: BarChart3,
+      label: "نکات کلیدی",
+      value: data.totalKeyPoints,
+      color: "text-danger",
+      bg: "bg-danger-bg",
     },
   ]
 
   return (
-    <div className="space-y-5 sm:space-y-6">
-      <div className="flex items-center justify-between animate-in fade-in-up">
-        <h1 className="text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">
-          تحلیل
+    <div className="flex flex-col gap-5 pb-4">
+      {/* Hero */}
+      <div className="rounded-[20px] bg-surface border border-border p-5 sm:p-6 flex flex-col gap-2">
+        <p className="text-[13px] font-bold text-accent">تحلیل</p>
+        <h1 className="text-[26px] sm:text-[30px] font-bold text-text-primary leading-10">
+          آمار جلسات
         </h1>
-        <Button variant="ghost" size="icon" onClick={loadData}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <p className="text-[14px] text-text-secondary leading-5">
+          نمای کلی از جلسات شما
+        </p>
       </div>
 
       {/* Metrics grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 animate-in fade-in-up stagger-1">
-        {metrics.map((metric, i) => (
-          <Card key={metric.title} className={`animate-in fade-in-up stagger-${Math.min(i + 2, 6)}`}>
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-xl ${metric.bg} border ${metric.border}`}>
-                  <metric.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${metric.color}`} />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-2xl font-bold text-text-primary">
-                    {metric.value}
-                  </p>
-                  <p className="text-[11px] text-text-muted">{metric.title}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-2 gap-3">
+        {metrics.map((m) => (
+          <div
+            key={m.label}
+            className="rounded-[16px] bg-surface border border-border p-4 flex flex-col gap-3"
+          >
+            <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${m.bg}`}>
+              <m.icon className={`h-4 w-4 ${m.color}`} />
+            </div>
+            <div>
+              <p className="text-[22px] font-bold text-text-primary">{m.value}</p>
+              <p className="text-[12px] text-text-secondary mt-0.5">{m.label}</p>
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Bar chart */}
-      <Card className="animate-in fade-in-up stagger-4">
-        <CardHeader>
-          <CardTitle className="text-base">جلسه‌های ۷ روز آینده</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-end gap-2 h-40 sm:h-48">
-            {data.next7Days.map((day, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                <div className="w-full flex justify-center h-full items-end">
-                  <div
-                    className="w-full max-w-[36px] sm:max-w-[44px] bg-gradient-to-t from-accent/60 to-accent rounded-t-lg transition-all duration-500"
-                    style={{
-                      height: `${(day.count / maxCount) * 100}%`,
-                      minHeight: day.count > 0 ? "8px" : "3px",
-                    }}
-                  />
-                </div>
-                <span className="text-[10px] sm:text-xs text-text-muted">{day.day}</span>
-                <span className="text-[10px] sm:text-xs font-medium text-text-secondary">
-                  {day.count}
-                </span>
-              </div>
-            ))}
+      {/* Coverage & Overdue */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-[16px] bg-success-bg border border-success-border p-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-success" />
+            <p className="text-[13px] font-bold text-success">پوشش خلاصه</p>
           </div>
-        </CardContent>
-      </Card>
+          <p className="text-[22px] font-bold text-text-primary mt-2">{data.summaryCoverage}%</p>
+          <p className="text-[12px] text-text-secondary mt-0.5">جلسات دارای خلاصه</p>
+        </div>
+        <div className="rounded-[16px] bg-danger-bg border border-danger-border p-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-danger" />
+            <p className="text-[13px] font-bold text-danger">وظایف باقی‌مانده</p>
+          </div>
+          <p className="text-[22px] font-bold text-text-primary mt-2">{data.overdueActions}</p>
+          <p className="text-[12px] text-text-secondary mt-0.5">آیتم انجام نشده</p>
+        </div>
+      </div>
+
+      {/* 7-day chart */}
+      {data.next7Days && data.next7Days.length > 0 && (
+        <Card>
+          <CardContent className="pt-1">
+            <p className="text-[14px] font-bold text-text-primary mb-4">جلسات ۷ روز آینده</p>
+            <div className="flex items-end gap-2 h-32">
+              {data.next7Days.map((day, i) => {
+                const maxCount = Math.max(...data.next7Days.map((d) => d.count), 1)
+                const height = (day.count / maxCount) * 100
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-text-secondary">{day.count}</span>
+                    <div className="w-full flex-1 flex items-end">
+                      <div
+                        className="w-full rounded-t-lg bg-accent transition-all duration-300"
+                        style={{ height: `${Math.max(height, 4)}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-text-muted">{day.day}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
