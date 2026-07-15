@@ -71,7 +71,6 @@ export default function RecordingPage() {
 
   const [aiStep, setAiStep] = React.useState<AiProcessingStep>("idle")
 
-  // Start speech recognition when recording starts (web only)
   React.useEffect(() => {
     if (recordingStatus === "recording" && typeof window !== "undefined") {
       startListening()
@@ -91,11 +90,6 @@ export default function RecordingPage() {
     try {
       setAiStep("transcribing")
 
-      const formData = new FormData()
-      formData.append("audio", audioBlob, "recording.webm")
-      formData.append("meetingId", meetingId)
-
-      // If we have a live transcript from Web Speech API, skip transcription
       if (liveTranscript) {
         setAiStep("summarizing")
         const summaryResponse = await fetch("/api/summarize", {
@@ -128,7 +122,10 @@ export default function RecordingPage() {
         setAiStep("done")
         toast({ title: "پردازش کامل شد", variant: "success" })
       } else {
-        // Full pipeline: transcribe -> summarize -> save
+        const formData = new FormData()
+        formData.append("audio", audioBlob, "recording.webm")
+        formData.append("meetingId", meetingId)
+
         const transcribeResponse = await fetch("/api/transcribe", {
           method: "POST",
           body: formData,
@@ -186,31 +183,33 @@ export default function RecordingPage() {
   const isProcessing = aiStep !== "idle" && aiStep !== "done" && aiStep !== "error"
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
+    <div className="max-w-lg mx-auto space-y-5 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 animate-in fade-in-up">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowRight className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-bold text-gray-900">ضبط صدا</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
+          ضبط صدا
+        </h1>
       </div>
 
       {/* Recording Card */}
-      <Card>
-        <CardContent className="p-6">
+      <Card className="animate-in fade-in-up stagger-1">
+        <CardContent className="p-6 sm:p-8">
           {/* Timer */}
-          <div className="text-center mb-6">
+          <div className="text-center mb-8">
             <div
-              className={`text-5xl font-mono font-bold ${
-                isRecording ? "text-red-500" : "text-gray-900"
+              className={`text-5xl sm:text-6xl font-mono font-bold tracking-wider ${
+                isRecording ? "text-danger" : "text-text-primary"
               }`}
             >
               {formatDuration(duration)}
             </div>
             {isRecording && (
-              <div className="mt-2 flex items-center justify-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-sm text-red-500">
+              <div className="mt-3 flex items-center justify-center gap-2">
+                <div className={`h-2.5 w-2.5 rounded-full ${recordingStatus === "recording" ? "bg-danger animate-pulse" : "bg-warning"}`} />
+                <span className="text-sm text-text-muted">
                   {recordingStatus === "recording" ? "در حال ضبط" : "مکث"}
                 </span>
               </div>
@@ -219,92 +218,83 @@ export default function RecordingPage() {
 
           {/* Live transcript */}
           {isRecording && liveTranscript && (
-            <div className="mb-4 p-3 rounded-lg bg-indigo-50 border border-indigo-200 max-h-32 overflow-y-auto">
-              <p className="text-sm text-indigo-700 leading-relaxed">
+            <div className="mb-6 p-4 rounded-xl bg-accent/5 border border-accent/15 max-h-32 overflow-y-auto">
+              <p className="text-sm text-accent/80 leading-relaxed">
                 {liveTranscript}
               </p>
             </div>
           )}
 
           {/* Recording controls */}
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center justify-center gap-4">
             {recordingStatus === "idle" && (
-              <Button size="lg" onClick={startRecording} className="rounded-full h-16 w-16">
-                <Mic className="h-6 w-6" />
-              </Button>
+              <button
+                onClick={startRecording}
+                className="flex h-20 w-20 items-center justify-center rounded-full bg-accent shadow-xl shadow-accent/30 hover:bg-accent-dark hover:shadow-2xl hover:shadow-accent/40 transition-all duration-300 active:scale-95 cursor-pointer glow-accent"
+              >
+                <Mic className="h-8 w-8 text-white" />
+              </button>
             )}
 
             {recordingStatus === "recording" && (
               <>
-                <Button
-                  variant="outline"
-                  size="icon"
+                <button
                   onClick={pauseRecording}
-                  className="rounded-full h-12 w-12"
+                  className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-surface-elevated text-text-primary hover:bg-surface-elevated/80 transition-all duration-200 active:scale-95 cursor-pointer"
                 >
                   <Pause className="h-5 w-5" />
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="icon"
+                </button>
+                <button
                   onClick={stopRecording}
-                  className="rounded-full h-16 w-16"
+                  className="flex h-20 w-20 items-center justify-center rounded-full bg-danger shadow-xl shadow-danger/30 hover:bg-danger/90 transition-all duration-300 active:scale-95 cursor-pointer"
                 >
-                  <Square className="h-6 w-6" />
-                </Button>
+                  <Square className="h-7 w-7 text-white" fill="currentColor" />
+                </button>
               </>
             )}
 
             {recordingStatus === "paused" && (
               <>
-                <Button
-                  variant="outline"
-                  size="icon"
+                <button
                   onClick={resumeRecording}
-                  className="rounded-full h-12 w-12"
+                  className="flex h-14 w-14 items-center justify-center rounded-full bg-accent shadow-xl shadow-accent/30 hover:bg-accent-dark transition-all duration-200 active:scale-95 cursor-pointer"
                 >
-                  <Play className="h-5 w-5" />
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="icon"
+                  <Play className="h-5 w-5 text-white" fill="currentColor" />
+                </button>
+                <button
                   onClick={stopRecording}
-                  className="rounded-full h-16 w-16"
+                  className="flex h-20 w-20 items-center justify-center rounded-full bg-danger shadow-xl shadow-danger/30 hover:bg-danger/90 transition-all duration-300 active:scale-95 cursor-pointer"
                 >
-                  <Square className="h-6 w-6" />
-                </Button>
+                  <Square className="h-7 w-7 text-white" fill="currentColor" />
+                </button>
               </>
             )}
 
             {recordingStatus === "completed" && (
               <>
-                <Button
-                  variant="outline"
-                  size="icon"
+                <button
                   onClick={isPlaying ? pause : play}
-                  className="rounded-full h-12 w-12"
+                  className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-surface-elevated text-text-primary hover:bg-surface-elevated/80 transition-all duration-200 active:scale-95 cursor-pointer"
                 >
                   {isPlaying ? (
                     <Pause className="h-5 w-5" />
                   ) : (
-                    <Play className="h-5 w-5" />
+                    <Play className="h-5 w-5" fill="currentColor" />
                   )}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
+                </button>
+                <button
                   onClick={replay}
-                  className="rounded-full h-12 w-12"
+                  className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-surface-elevated text-text-primary hover:bg-surface-elevated/80 transition-all duration-200 active:scale-95 cursor-pointer"
                 >
                   <RotateCcw className="h-5 w-5" />
-                </Button>
+                </button>
               </>
             )}
           </div>
 
           {recordingError && (
-            <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
-              <p className="text-sm text-red-600 text-center">
+            <div className="mt-6 p-4 rounded-xl bg-danger/10 border border-danger/20">
+              <p className="text-sm text-danger text-center">
                 {recordingError}
               </p>
             </div>
@@ -314,7 +304,7 @@ export default function RecordingPage() {
 
       {/* Processing steps */}
       {isCompleted && (
-        <Card>
+        <Card className="animate-in fade-in-up stagger-2">
           <CardHeader>
             <CardTitle>پردازش هوشمند</CardTitle>
           </CardHeader>
@@ -332,27 +322,26 @@ export default function RecordingPage() {
                 const isDone =
                   aiStep === "done" || currentIdx > stepIdx
                 const isCurrent = aiStep === step
-                const isPending = currentIdx < stepIdx
 
                 return (
                   <div
                     key={step}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-gray-50"
+                    className="flex items-center gap-3 p-3.5 rounded-xl bg-surface-elevated/50 border border-border-subtle"
                   >
                     {isDone ? (
-                      <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+                      <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
                     ) : isCurrent ? (
-                      <Loader2 className="h-5 w-5 text-indigo-500 animate-spin shrink-0" />
+                      <Loader2 className="h-5 w-5 text-accent animate-spin shrink-0" />
                     ) : (
-                      <Circle className="h-5 w-5 text-gray-300 shrink-0" />
+                      <Circle className="h-5 w-5 text-text-muted/30 shrink-0" />
                     )}
                     <span
                       className={`text-sm ${
                         isDone
-                          ? "text-emerald-600"
+                          ? "text-success"
                           : isCurrent
-                            ? "text-indigo-600 font-medium"
-                            : "text-gray-400"
+                            ? "text-accent font-medium"
+                            : "text-text-muted"
                       }`}
                     >
                       {STEP_LABELS[step]}
@@ -363,9 +352,9 @@ export default function RecordingPage() {
             )}
 
             {aiStep === "error" && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200 flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-red-500" />
-                <span className="text-sm text-red-600">
+              <div className="p-4 rounded-xl bg-danger/10 border border-danger/20 flex items-center gap-2.5">
+                <AlertCircle className="h-5 w-5 text-danger shrink-0" />
+                <span className="text-sm text-danger">
                   خطا در پردازش. لطفاً دوباره تلاش کنید.
                 </span>
               </div>
@@ -374,6 +363,7 @@ export default function RecordingPage() {
             {aiStep === "done" && (
               <Button
                 className="w-full"
+                size="lg"
                 onClick={() => router.push(`/meetings/${meetingId}`)}
               >
                 مشاهده نتیجه
@@ -384,6 +374,7 @@ export default function RecordingPage() {
               <Button
                 variant="outline"
                 className="w-full"
+                size="lg"
                 onClick={processRecording}
               >
                 تلاش مجدد
@@ -393,6 +384,7 @@ export default function RecordingPage() {
             {aiStep === "idle" && (
               <Button
                 className="w-full"
+                size="lg"
                 onClick={processRecording}
                 disabled={isProcessing}
               >
@@ -406,10 +398,12 @@ export default function RecordingPage() {
 
       {/* Reset */}
       {isCompleted && aiStep === "idle" && (
-        <Button variant="ghost" className="w-full" onClick={resetRecording}>
-          <RotateCcw className="h-4 w-4 ml-2" />
-          ضبط مجدد
-        </Button>
+        <div className="animate-in fade-in-up stagger-3">
+          <Button variant="ghost" className="w-full" onClick={resetRecording}>
+            <RotateCcw className="h-4 w-4 ml-2" />
+            ضبط مجدد
+          </Button>
+        </div>
       )}
     </div>
   )

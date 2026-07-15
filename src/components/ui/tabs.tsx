@@ -44,7 +44,7 @@ function TabsList({
   return (
     <div
       className={cn(
-        "inline-flex h-10 items-center justify-center rounded-lg bg-gray-100 p-1 text-gray-500",
+        "inline-flex h-11 items-center justify-center rounded-xl bg-surface-elevated p-1 text-text-muted border border-border",
         className
       )}
     >
@@ -68,10 +68,10 @@ function TabsTrigger({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer",
+        "inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer",
         isActive
-          ? "bg-white text-gray-900 shadow-sm"
-          : "text-gray-500 hover:text-gray-700",
+          ? "bg-accent text-white shadow-lg shadow-accent/20"
+          : "text-text-muted hover:text-text-primary",
         className
       )}
       onClick={() => context.onValueChange(value)}
@@ -96,7 +96,7 @@ function TabsContent({
   return (
     <div
       className={cn(
-        "mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
+        "mt-4 animate-in fade-in-up focus-visible:outline-none",
         className
       )}
     >

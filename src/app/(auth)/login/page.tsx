@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Mic, Loader2 } from "lucide-react"
+import { Mic, Loader2, ArrowLeft } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -81,19 +81,29 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-mesh p-4 sm:p-6">
+      {/* Ambient glow effects */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-accent/10 rounded-full blur-[120px]" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-500/8 rounded-full blur-[120px]" />
+      </div>
+
+      <div className="w-full max-w-md relative z-10 animate-in fade-in-up">
         {/* Branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-indigo-600 mb-4">
-            <Mic className="h-8 w-8 text-white" />
+        <div className="text-center mb-8 sm:mb-10">
+          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-accent/15 border border-accent/20 mb-5 glow-accent">
+            <Mic className="h-8 w-8 text-accent" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">گفتان</h1>
-          <p className="text-gray-500 mt-1">مدیریت هوشمند جلسات</p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-text-primary tracking-tight">
+            گفتان
+          </h1>
+          <p className="text-text-muted mt-2 text-sm">
+            مدیریت هوشمند جلسات
+          </p>
         </div>
 
-        <Card>
-          <CardContent className="p-6">
+        <Card className="border-border bg-surface/80 backdrop-blur-xl shadow-2xl shadow-black/20">
+          <CardContent className="p-5 sm:p-7">
             <Tabs defaultValue="login">
               <TabsList className="w-full">
                 <TabsTrigger value="login" className="flex-1">
@@ -105,13 +115,13 @@ export default function LoginPage() {
               </TabsList>
 
               {error && (
-                <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
-                  <p className="text-sm text-red-600 text-center">{error}</p>
+                <div className="mt-4 p-3 rounded-xl bg-danger/10 border border-danger/20">
+                  <p className="text-sm text-danger text-center">{error}</p>
                 </div>
               )}
 
               <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4 mt-4">
+                <form onSubmit={handleLogin} className="space-y-4 mt-2">
                   <div className="space-y-2">
                     <Label htmlFor="login-email">ایمیل</Label>
                     <Input
@@ -122,6 +132,7 @@ export default function LoginPage() {
                       onChange={(e) => setLoginEmail(e.target.value)}
                       required
                       dir="ltr"
+                      className="text-left"
                     />
                   </div>
                   <div className="space-y-2">
@@ -137,19 +148,23 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     className="w-full"
+                    size="lg"
                     disabled={isLoading}
                   >
                     {isLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      "ورود"
+                      <>
+                        ورود
+                        <ArrowLeft className="h-4 w-4" />
+                      </>
                     )}
                   </Button>
                 </form>
               </TabsContent>
 
               <TabsContent value="signup">
-                <form onSubmit={handleSignup} className="space-y-4 mt-4">
+                <form onSubmit={handleSignup} className="space-y-4 mt-2">
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">نام</Label>
                     <Input
@@ -171,6 +186,7 @@ export default function LoginPage() {
                       onChange={(e) => setSignupEmail(e.target.value)}
                       required
                       dir="ltr"
+                      className="text-left"
                     />
                   </div>
                   <div className="space-y-2">
@@ -187,6 +203,7 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     className="w-full"
+                    size="lg"
                     disabled={isLoading}
                   >
                     {isLoading ? (

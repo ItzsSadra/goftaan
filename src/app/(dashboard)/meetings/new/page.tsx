@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/components/ui/toast"
 import { ArrowRight, Loader2 } from "lucide-react"
 
@@ -15,7 +15,6 @@ export default function NewMeetingPage() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = React.useState(false)
 
-  // Default start time: 30 minutes from now
   const getDefaultStartTime = () => {
     const now = new Date()
     now.setMinutes(now.getMinutes() + 30)
@@ -24,7 +23,7 @@ export default function NewMeetingPage() {
 
   const getDefaultEndTime = () => {
     const now = new Date()
-    now.setMinutes(now.getMinutes() + 75) // 30 + 45 min duration
+    now.setMinutes(now.getMinutes() + 75)
     return now.toISOString().slice(0, 16)
   }
 
@@ -82,8 +81,8 @@ export default function NewMeetingPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
-      <div className="flex items-center gap-3">
+    <div className="max-w-lg mx-auto space-y-5 sm:space-y-6">
+      <div className="flex items-center gap-3 animate-in fade-in-up">
         <Button
           variant="ghost"
           size="icon"
@@ -91,15 +90,17 @@ export default function NewMeetingPage() {
         >
           <ArrowRight className="h-5 w-5" />
         </Button>
-        <h1 className="text-2xl font-bold text-gray-900">افزودن جلسه</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
+          افزودن جلسه
+        </h1>
       </div>
 
-      <Card>
-        <CardContent className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
+      <Card className="animate-in fade-in-up stagger-1 border-border bg-surface/80 backdrop-blur-xl shadow-2xl shadow-black/10">
+        <CardContent className="p-5 sm:p-7">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                <p className="text-sm text-red-600 text-center">{error}</p>
+              <div className="p-3 rounded-xl bg-danger/10 border border-danger/20">
+                <p className="text-sm text-danger text-center">{error}</p>
               </div>
             )}
 
@@ -124,7 +125,7 @@ export default function NewMeetingPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="startAt">زمان شروع</Label>
                 <Input
@@ -133,6 +134,7 @@ export default function NewMeetingPage() {
                   value={startAt}
                   onChange={(e) => setStartAt(e.target.value)}
                   dir="ltr"
+                  className="text-left"
                 />
               </div>
               <div className="space-y-2">
@@ -143,6 +145,7 @@ export default function NewMeetingPage() {
                   value={endAt}
                   onChange={(e) => setEndAt(e.target.value)}
                   dir="ltr"
+                  className="text-left"
                 />
               </div>
             </div>
@@ -158,7 +161,7 @@ export default function NewMeetingPage() {
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

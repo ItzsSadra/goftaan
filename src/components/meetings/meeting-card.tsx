@@ -28,63 +28,63 @@ export function MeetingCard({
     <Link href={`/meetings/${meeting.id}`}>
       <div
         className={cn(
-          "group relative rounded-xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:shadow-md hover:border-indigo-200 cursor-pointer",
-          compact && "p-3"
+          "group relative rounded-2xl border border-border bg-surface/60 backdrop-blur-sm p-4 sm:p-5 transition-all duration-300 hover:bg-surface-elevated/50 hover:border-border hover:shadow-xl hover:shadow-black/10 cursor-pointer",
+          compact && "p-3 sm:p-4"
         )}
       >
-        {/* Accent bar */}
+        {/* Accent gradient bar */}
         <div
           className={cn(
-            "absolute right-0 top-0 bottom-0 w-1 rounded-r-xl",
+            "absolute right-0 top-3 bottom-3 w-[3px] rounded-full transition-all duration-300 group-hover:h-full group-hover:top-0 group-hover:bottom-0",
             isPast
-              ? "bg-gray-300"
+              ? "bg-text-muted/30"
               : meeting.source === "manual"
-                ? "bg-emerald-500"
-                : "bg-indigo-500"
+                ? "bg-gradient-to-b from-success to-success/50"
+                : "bg-gradient-to-b from-accent to-accent/50"
           )}
         />
 
         <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 pr-1">
             <h3
               className={cn(
-                "font-semibold text-gray-900 truncate",
-                compact ? "text-sm" : "text-base"
+                "font-semibold text-text-primary truncate",
+                compact ? "text-sm" : "text-[15px]"
               )}
             >
               {meeting.title}
             </h3>
 
-            <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-500">
-              <Clock className="h-3.5 w-3.5 shrink-0" />
+            <div className="flex items-center gap-1.5 mt-2 text-xs text-text-muted">
+              <Clock className="h-3.5 w-3.5 shrink-0 opacity-60" />
               <span className="truncate">
                 {formatMeetingTime(meeting.startAt, meeting.endAt)}
               </span>
             </div>
 
             {meeting.location && !compact && (
-              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <div className="flex items-center gap-1.5 mt-1 text-xs text-text-muted">
+                <MapPin className="h-3.5 w-3.5 shrink-0 opacity-60" />
                 <span className="truncate">{meeting.location}</span>
               </div>
             )}
 
             {/* Summary preview */}
             {summary && !compact && (
-              <div className="mt-3 p-3 rounded-lg bg-gray-50">
-                <p className="text-xs text-gray-600 line-clamp-2">
+              <div className="mt-3 p-3 rounded-xl bg-surface-elevated/50 border border-border-subtle">
+                <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
                   {summary.summary}
                 </p>
                 {(summary.keyPoints.length > 0 ||
                   summary.actionItems.length > 0) && (
                   <div className="flex gap-3 mt-2">
                     {summary.keyPoints.length > 0 && (
-                      <span className="text-xs text-indigo-600">
+                      <span className="text-[11px] text-accent font-medium">
                         {summary.keyPoints.length} نکته کلیدی
                       </span>
                     )}
                     {summary.actionItems.length > 0 && (
-                      <span className="text-xs text-amber-600">
+                      <span className="text-[11px] text-warning font-medium">
                         {summary.actionItems.length} اقدام
                       </span>
                     )}
@@ -118,9 +118,9 @@ export function MeetingCard({
                   e.stopPropagation()
                   onDelete(meeting.id)
                 }}
-                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
+                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-text-muted hover:text-danger hover:bg-danger/10 transition-all cursor-pointer"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
             )}
           </div>

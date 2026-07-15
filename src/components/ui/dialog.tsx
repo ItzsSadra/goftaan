@@ -16,7 +16,7 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
   return (
     <div className="fixed inset-0 z-50">
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={() => onOpenChange?.(false)}
       />
       <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -38,14 +38,14 @@ function DialogContent({
   return (
     <div
       className={cn(
-        "w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl animate-in fade-in-0 zoom-in-95",
+        "w-full max-w-lg rounded-2xl bg-surface border border-border p-6 shadow-2xl shadow-black/30 animate-in zoom-in-95",
         className
       )}
     >
       {onClose && (
         <button
           onClick={onClose}
-          className="absolute left-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 cursor-pointer"
+          className="absolute left-4 top-4 rounded-lg p-1 text-text-muted hover:text-text-primary hover:bg-surface-elevated transition-colors cursor-pointer"
         >
           <X className="h-4 w-4" />
         </button>
@@ -76,7 +76,7 @@ function DialogTitle({
 }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h2
-      className={cn("text-lg font-semibold text-gray-900", className)}
+      className={cn("text-lg font-semibold text-text-primary", className)}
       {...props}
     />
   )
@@ -88,7 +88,7 @@ function DialogDescription({
 }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
     <p
-      className={cn("text-sm text-gray-500", className)}
+      className={cn("text-sm text-text-muted", className)}
       {...props}
     />
   )

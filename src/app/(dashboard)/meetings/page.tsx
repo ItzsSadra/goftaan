@@ -37,8 +37,8 @@ export default function MeetingsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
       </div>
     )
   }
@@ -48,7 +48,7 @@ export default function MeetingsPage() {
       <CenteredState
         title="خطا در بارگذاری"
         description={error}
-        icon={<CalendarOff className="h-12 w-12" />}
+        icon={<CalendarOff className="h-16 w-16" />}
         action={
           <Button onClick={handleRefresh} variant="outline">
             <RefreshCw className="h-4 w-4 ml-2" />
@@ -60,12 +60,14 @@ export default function MeetingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-in fade-in-up">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">جلسه‌ها</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">
+            جلسه‌ها
+          </h1>
+          <p className="text-sm text-text-muted mt-1">
             {upcoming.length + past.length} جلسه
           </p>
         </div>
@@ -80,7 +82,7 @@ export default function MeetingsPage() {
               className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
             />
           </Button>
-          <Link href="/meetings/new">
+          <Link href="/meetings/new" className="hidden sm:block">
             <Button>
               <Plus className="h-4 w-4 ml-2" />
               جلسه جدید
@@ -90,65 +92,69 @@ export default function MeetingsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="upcoming">
-        <TabsList>
-          <TabsTrigger value="upcoming">
-            پیش رو ({upcoming.length})
-          </TabsTrigger>
-          <TabsTrigger value="past">
-            گذشته ({past.length})
-          </TabsTrigger>
-        </TabsList>
+      <div className="animate-in fade-in-up stagger-1">
+        <Tabs defaultValue="upcoming">
+          <TabsList>
+            <TabsTrigger value="upcoming">
+              پیش رو ({upcoming.length})
+            </TabsTrigger>
+            <TabsTrigger value="past">
+              گذشته ({past.length})
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="upcoming">
-          {upcoming.length === 0 ? (
-            <CenteredState
-              title="جلسه‌ای پیش رو نیست"
-              description="با کلیک روی دکمه زیر یک جلسه جدید اضافه کنید"
-              icon={<CalendarDays className="h-12 w-12" />}
-              action={
-                <Link href="/meetings/new">
-                  <Button>
-                    <Plus className="h-4 w-4 ml-2" />
-                    افزودن جلسه
-                  </Button>
-                </Link>
-              }
-            />
-          ) : (
-            <div className="space-y-3 mt-4">
-              {upcoming.map((meeting) => (
-                <MeetingCard
-                  key={meeting.id}
-                  meeting={meeting}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
+          <TabsContent value="upcoming">
+            {upcoming.length === 0 ? (
+              <CenteredState
+                title="جلسه‌ای پیش رو نیست"
+                description="با کلیک روی دکمه زیر یک جلسه جدید اضافه کنید"
+                icon={<CalendarDays className="h-16 w-16" />}
+                action={
+                  <Link href="/meetings/new">
+                    <Button>
+                      <Plus className="h-4 w-4 ml-2" />
+                      افزودن جلسه
+                    </Button>
+                  </Link>
+                }
+              />
+            ) : (
+              <div className="space-y-3">
+                {upcoming.map((meeting, i) => (
+                  <div key={meeting.id} className={`animate-in fade-in-up stagger-${Math.min(i + 1, 6)}`}>
+                    <MeetingCard
+                      meeting={meeting}
+                      onDelete={handleDelete}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
-        <TabsContent value="past">
-          {past.length === 0 ? (
-            <CenteredState
-              title="جلسه گذشته‌ای وجود ندارد"
-              description="جلسات گذشته اینجا نمایش داده می‌شوند"
-              icon={<CalendarDays className="h-12 w-12" />}
-            />
-          ) : (
-            <div className="space-y-3 mt-4">
-              {past.map((meeting) => (
-                <MeetingCard
-                  key={meeting.id}
-                  meeting={meeting}
-                  summary={summaries[meeting.id]}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="past">
+            {past.length === 0 ? (
+              <CenteredState
+                title="جلسه گذشته‌ای وجود ندارد"
+                description="جلسات گذشته اینجا نمایش داده می‌شوند"
+                icon={<CalendarDays className="h-16 w-16" />}
+              />
+            ) : (
+              <div className="space-y-3">
+                {past.map((meeting, i) => (
+                  <div key={meeting.id} className={`animate-in fade-in-up stagger-${Math.min(i + 1, 6)}`}>
+                    <MeetingCard
+                      meeting={meeting}
+                      summary={summaries[meeting.id]}
+                      onDelete={handleDelete}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   )
 }

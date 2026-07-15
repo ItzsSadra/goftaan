@@ -28,17 +28,15 @@ export default function SettingsPage() {
   const [userId, setUserId] = React.useState<string | null>(null)
   const [profile, setProfile] = React.useState({ name: "", email: "" })
   const [settings, setSettings] = React.useState<RecordingSettings>(DEFAULT_SETTINGS)
-  const [currentPassword, setCurrentPassword] = React.useState("")
   const [newPassword, setNewPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
-  const [isChangingPassword, setIsChangingPassword] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
+  const [isChangingPassword, setIsChangingPassword] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(true)
 
   React.useEffect(() => {
     async function loadData() {
       try {
-        // Get current user from API
         const res = await fetch("/api/auth/me")
         if (res.ok) {
           const data = await res.json()
@@ -49,7 +47,6 @@ export default function SettingsPage() {
         // Not logged in
       }
 
-      // Load settings from localStorage
       const saved = localStorage.getItem("goftaan.settings.v1")
       if (saved) {
         try {
@@ -120,7 +117,6 @@ export default function SettingsPage() {
       if (!response.ok) throw new Error("Failed to change password")
 
       toast({ title: "رمز عبور تغییر کرد", variant: "success" })
-      setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
     } catch {
@@ -151,21 +147,25 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
       </div>
     )
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">تنظیمات</h1>
+    <div className="max-w-lg mx-auto space-y-5 sm:space-y-6">
+      <h1 className="text-2xl sm:text-3xl font-bold text-text-primary tracking-tight animate-in fade-in-up">
+        تنظیمات
+      </h1>
 
       {/* Account */}
-      <Card>
+      <Card className="animate-in fade-in-up stagger-1">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <User className="h-5 w-5 text-indigo-600" />
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 border border-accent/15">
+              <User className="h-4 w-4 text-accent" />
+            </div>
             حساب کاربری
           </CardTitle>
         </CardHeader>
@@ -190,6 +190,7 @@ export default function SettingsPage() {
                 setProfile({ ...profile, email: e.target.value })
               }
               dir="ltr"
+              className="text-left"
             />
           </div>
           <Button onClick={handleSaveProfile} disabled={isSaving}>
@@ -206,10 +207,12 @@ export default function SettingsPage() {
       </Card>
 
       {/* Password */}
-      <Card>
+      <Card className="animate-in fade-in-up stagger-2">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Lock className="h-5 w-5 text-amber-600" />
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/10 border border-warning/15">
+              <Lock className="h-4 w-4 text-warning" />
+            </div>
             تغییر رمز عبور
           </CardTitle>
         </CardHeader>
@@ -222,6 +225,7 @@ export default function SettingsPage() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               dir="ltr"
+              className="text-left"
             />
           </div>
           <div className="space-y-2">
@@ -232,6 +236,7 @@ export default function SettingsPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               dir="ltr"
+              className="text-left"
             />
           </div>
           <Button onClick={handleChangePassword} disabled={isChangingPassword}>
@@ -248,20 +253,22 @@ export default function SettingsPage() {
       </Card>
 
       {/* App Settings */}
-      <Card>
+      <Card className="animate-in fade-in-up stagger-3">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <SettingsIcon className="h-5 w-5 text-purple-600" />
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-400/10 border border-purple-400/15">
+              <SettingsIcon className="h-4 w-4 text-purple-400" />
+            </div>
             تنظیمات برنامه
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-text-primary">
                 بروزرسانی خودکار جلسات
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-text-muted">
                 لیست جلسات خودکار بروز شود
               </p>
             </div>
@@ -278,10 +285,10 @@ export default function SettingsPage() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-text-primary">
                 کارت‌های فشرده
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-text-muted">
                 نمایش فشرده‌تر کارت جلسات
               </p>
             </div>
@@ -297,10 +304,10 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <Label className="text-sm font-medium text-gray-900">
+            <Label className="text-sm font-medium text-text-primary">
               مدت پیش‌فرض جلسه (دقیقه)
             </Label>
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-2 mt-2.5">
               {[30, 45, 60, 90].map((min) => (
                 <Button
                   key={min}
@@ -329,20 +336,22 @@ export default function SettingsPage() {
       </Card>
 
       {/* Notifications */}
-      <Card>
+      <Card className="animate-in fade-in-up stagger-4">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Bell className="h-5 w-5 text-amber-600" />
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/10 border border-warning/15">
+              <Bell className="h-4 w-4 text-warning" />
+            </div>
             یادآوری‌ها
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-text-primary">
                 یادآوری قبل از جلسه
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-text-muted">
                 {settings.reminders.preMeetingMinutes} دقیقه قبل
               </p>
             </div>
@@ -359,8 +368,8 @@ export default function SettingsPage() {
 
           {settings.reminders.preMeetingEnabled && (
             <div>
-              <Label className="text-xs text-gray-500">زمان یادآوری</Label>
-              <div className="flex gap-2 mt-1">
+              <Label className="text-xs text-text-muted">زمان یادآوری</Label>
+              <div className="flex gap-2 mt-2.5">
                 {[5, 10, 15, 30].map((min) => (
                   <Button
                     key={min}
@@ -389,7 +398,7 @@ export default function SettingsPage() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-text-primary">
                 اعلان آماده شدن خلاصه
               </p>
             </div>
@@ -409,7 +418,7 @@ export default function SettingsPage() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-text-primary">
                 اعلان اقدامات معوق
               </p>
             </div>
@@ -430,18 +439,19 @@ export default function SettingsPage() {
       </Card>
 
       {/* Danger Zone */}
-      <Card className="border-red-200">
+      <Card className="border-danger/20 animate-in fade-in-up stagger-5">
         <CardHeader>
-          <CardTitle className="text-base text-red-600">ناحیه خطر</CardTitle>
+          <CardTitle className="text-base text-danger">ناحیه خطر</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Button variant="outline" className="w-full" onClick={handleLogout}>
+          <Button variant="outline" className="w-full" size="lg" onClick={handleLogout}>
             <LogOut className="h-4 w-4 ml-2" />
             خروج از حساب
           </Button>
           <Button
             variant="destructive"
             className="w-full"
+            size="lg"
             onClick={handleDeleteAccount}
           >
             <Trash2 className="h-4 w-4 ml-2" />
