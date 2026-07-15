@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
-import { verifyToken } from "@/lib/auth"
+import { verifyToken } from "@/lib/auth-edge"
 import { cookies } from "next/headers"
-import { COOKIE_NAME } from "@/lib/auth"
+import { COOKIE_NAME } from "@/lib/auth-edge"
 
 // Supabase client for database queries only (no auth)
 export function getDb() {
