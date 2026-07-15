@@ -47,14 +47,14 @@ function SelectTrigger({
     <button
       type="button"
       className={cn(
-        "flex h-12 w-full items-center justify-between rounded-xl border border-border bg-background px-3.5 py-3 text-[15px] text-text-primary transition-colors hover:bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer",
-        !value && "text-text-secondary",
+        "flex h-12 w-full items-center justify-between rounded-full border border-border/50 bg-surface-elevated/30 px-5 py-3 text-[15px] text-text-primary transition-all duration-500 hover:bg-surface-elevated/50 focus:outline-none focus:border-accent/30 focus:bg-surface-elevated/50 cursor-pointer",
+        !value && "text-text-muted/60",
         className
       )}
       onClick={() => setOpen(!open)}
     >
       <span>{value || placeholder || "Select..."}</span>
-      <ChevronDown className={cn("h-4 w-4 text-text-muted transition-transform duration-200", open && "rotate-180")} />
+      <ChevronDown className={cn("h-4 w-4 text-text-muted transition-transform duration-500", open && "rotate-180")} />
     </button>
   )
 }
@@ -78,9 +78,10 @@ function SelectContent({
       />
       <div
         className={cn(
-          "absolute z-50 mt-2 max-h-60 w-full overflow-auto rounded-xl border border-border bg-surface shadow-lg",
+          "absolute z-50 mt-2 max-h-60 w-full overflow-auto rounded-[20px] border border-border/30 bg-surface/95 backdrop-blur-xl shadow-2xl shadow-black/20",
           className
         )}
+        style={{ animation: "scale-in 0.4s ease-out" }}
       >
         {children}
       </div>
@@ -102,8 +103,8 @@ function SelectItem({
     <button
       type="button"
       className={cn(
-        "flex w-full items-center rounded-lg mx-1 px-3 py-2.5 text-[15px] cursor-pointer transition-colors text-text-primary hover:bg-background-accent",
-        selected === value && "bg-accent-soft text-accent"
+        "flex w-full items-center rounded-xl mx-1 px-4 py-3 text-[15px] cursor-pointer transition-all duration-300 text-text-secondary hover:bg-surface-elevated/60 hover:text-text-primary",
+        selected === value && "bg-accent/8 text-accent"
       )}
       onClick={() => {
         onValueChange(value)

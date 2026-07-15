@@ -80,24 +80,35 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4 sm:p-6">
-      <div className="w-full max-w-[400px] flex flex-col items-center gap-7">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 sm:px-6">
+      {/* Subtle background gradient */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-accent/[0.02] rounded-full blur-[120px]" />
+      </div>
+
+      <div className="w-full max-w-[380px] flex flex-col items-center gap-10 relative">
         {/* Brand */}
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex h-14 w-14 items-center justify-center rounded-[16px] bg-accent text-white font-bold text-[28px]">
-            G
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent font-semibold text-[18px]">
+            گ
           </div>
-          <span className="text-[24px] font-bold text-text-primary">گفتان</span>
-          <span className="text-[14px] text-text-secondary">مدیریت هوشمند جلسات</span>
+          <div className="text-center">
+            <span className="text-[28px] font-semibold text-text-primary tracking-tight block">
+              گفتان
+            </span>
+            <span className="text-[14px] text-text-muted tracking-wide">
+              مدیریت هوشمند جلسات
+            </span>
+          </div>
         </div>
 
-        <Card className="w-full">
-          <CardContent className="flex flex-col gap-4">
+        <Card className="w-full border-border/30">
+          <CardContent className="flex flex-col gap-6">
             <div className="flex flex-col gap-1">
-              <h2 className="text-[22px] font-bold text-text-primary">
-                ورود
+              <h2 className="text-[22px] font-semibold text-text-primary tracking-tight">
+                خوش آمدید
               </h2>
-              <p className="text-[14px] text-text-secondary leading-5">
+              <p className="text-[14px] text-text-muted leading-relaxed">
                 به حساب خود وارد شوید.
               </p>
             </div>
@@ -105,39 +116,43 @@ export default function LoginPage() {
             <Tabs defaultValue="login">
               <TabsList className="w-full">
                 <TabsTrigger value="login" className="flex-1">ورود</TabsTrigger>
-                <TabsTrigger value="signup" className="flex-1">ثبت‌نام</TabsTrigger>
+                <TabsTrigger value="signup" className="flex-1">ثبت\u200cنام</TabsTrigger>
               </TabsList>
 
               {error && (
-                <div className="p-3 rounded-[10px] bg-danger-bg border border-danger-border">
+                <div className="p-3.5 rounded-full bg-danger-bg border border-danger-border/30 mt-1">
                   <p className="text-[13px] text-danger text-center">{error}</p>
                 </div>
               )}
 
               <TabsContent value="login">
-                <form onSubmit={handleLogin} className="flex flex-col gap-2">
-                  <Label htmlFor="login-email">ایمیل</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    required
-                    dir="ltr"
-                    className="text-left"
-                  />
+                <form onSubmit={handleLogin} className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="login-email">ایمیل</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      required
+                      dir="ltr"
+                      className="text-left"
+                    />
+                  </div>
 
-                  <Label htmlFor="login-password">رمز عبور</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    required
-                    dir="ltr"
-                    className="text-left"
-                  />
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="login-password">رمز عبور</Label>
+                    <Input
+                      id="login-password"
+                      type="password"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      required
+                      dir="ltr"
+                      className="text-left"
+                    />
+                  </div>
 
                   <Button
                     type="submit"
@@ -155,40 +170,46 @@ export default function LoginPage() {
               </TabsContent>
 
               <TabsContent value="signup">
-                <form onSubmit={handleSignup} className="flex flex-col gap-2">
-                  <Label htmlFor="signup-name">نام</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="نام شما"
-                    value={signupName}
-                    onChange={(e) => setSignupName(e.target.value)}
-                    required
-                  />
+                <form onSubmit={handleSignup} className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="signup-name">نام</Label>
+                    <Input
+                      id="signup-name"
+                      type="text"
+                      placeholder="نام شما"
+                      value={signupName}
+                      onChange={(e) => setSignupName(e.target.value)}
+                      required
+                    />
+                  </div>
 
-                  <Label htmlFor="signup-email">ایمیل</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    required
-                    dir="ltr"
-                    className="text-left"
-                  />
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="signup-email">ایمیل</Label>
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={signupEmail}
+                      onChange={(e) => setSignupEmail(e.target.value)}
+                      required
+                      dir="ltr"
+                      className="text-left"
+                    />
+                  </div>
 
-                  <Label htmlFor="signup-password">رمز عبور</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    dir="ltr"
-                    className="text-left"
-                  />
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="signup-password">رمز عبور</Label>
+                    <Input
+                      id="signup-password"
+                      type="password"
+                      value={signupPassword}
+                      onChange={(e) => setSignupPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      dir="ltr"
+                      className="text-left"
+                    />
+                  </div>
 
                   <Button
                     type="submit"
@@ -199,7 +220,7 @@ export default function LoginPage() {
                     {isLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      "ثبت‌نام"
+                      "ثبت\u200cنام"
                     )}
                   </Button>
                 </form>
@@ -207,6 +228,11 @@ export default function LoginPage() {
             </Tabs>
           </CardContent>
         </Card>
+
+        {/* Subtle footer text */}
+        <p className="text-[12px] text-text-muted/50 tracking-wide">
+          تجربه\u200cای متفاوت در مدیریت جلسات
+        </p>
       </div>
     </div>
   )

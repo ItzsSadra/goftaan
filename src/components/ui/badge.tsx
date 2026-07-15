@@ -5,21 +5,21 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full px-2.5 py-1.5 text-[11px] font-bold tracking-wide",
+  "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium tracking-wide uppercase",
   {
     variants: {
       variant: {
         default:
-          "bg-accent-soft text-text-primary",
+          "bg-accent/8 text-accent border border-accent/10",
         secondary:
-          "bg-background-accent text-text-primary",
+          "bg-surface-elevated/60 text-text-secondary border border-border/50",
         destructive:
-          "bg-danger-bg text-danger",
-        outline: "text-text-secondary border border-border",
+          "bg-danger-bg text-danger border border-danger-border/50",
+        outline: "text-text-muted border border-border/30",
         success:
-          "bg-success-bg text-success",
+          "bg-success-bg text-success border border-success-border/50",
         warning:
-          "bg-amber-50 text-warning",
+          "bg-warning/8 text-warning border border-warning/10",
       },
     },
     defaultVariants: {

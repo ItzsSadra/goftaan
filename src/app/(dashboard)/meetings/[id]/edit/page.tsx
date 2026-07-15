@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CenteredState } from "@/components/shared/centered-state"
-import { ArrowRight, Loader2, CalendarDays } from "lucide-react"
+import { ArrowRight, Loader2 } from "lucide-react"
 
 interface Meeting {
   id: string
@@ -73,13 +72,7 @@ export default function EditMeetingPage() {
       const res = await fetch(`/api/meetings/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          location: location || undefined,
-          notes: notes || undefined,
-          startAt,
-          endAt,
-        }),
+        body: JSON.stringify({ title, location: location || undefined, notes: notes || undefined, startAt, endAt }),
       })
 
       if (!res.ok) {
@@ -104,101 +97,63 @@ export default function EditMeetingPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 pb-4">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.back()}
-          className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-background-accent transition-colors cursor-pointer"
-        >
-          <ArrowRight className="h-4 w-4" />
-        </button>
-        <h1 className="text-[20px] font-bold text-text-primary">ویرایش جلسه</h1>
+    <div className="max-w-2xl mx-auto flex flex-col gap-8 pb-4">
+      <div className="flex items-center gap-4" style={{ animation: "fade-in-up 0.6s ease-out" }}>
+        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <ArrowRight className="h-5 w-5" />
+        </Button>
+        <h1 className="text-[24px] sm:text-[28px] font-semibold text-text-primary tracking-tight">
+          ویرایش جلسه
+        </h1>
       </div>
 
       {error && (
-        <div className="p-3 rounded-[10px] bg-danger-bg border border-danger-border">
+        <div className="p-4 rounded-full bg-danger-bg border border-danger-border/30">
           <p className="text-[13px] text-danger text-center">{error}</p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-[15px]">اطلاعات جلسه</CardTitle>
+            <CardTitle className="text-[16px]">اطلاعات جلسه</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
+          <CardContent className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="title">عنوان جلسه</Label>
-              <Input
-                id="title"
-                placeholder="عنوان جلسه را وارد کنید"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-              />
+              <Input id="title" placeholder="عنوان جلسه را وارد کنید" value={title} onChange={(e) => setTitle(e.target.value)} required />
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="location">مکان (اختیاری)</Label>
-              <Input
-                id="location"
-                placeholder="مکان جلسه"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-              />
+              <Input id="location" placeholder="مکان جلسه" value={location} onChange={(e) => setLocation(e.target.value)} />
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="date">تاریخ</Label>
-              <Input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-              />
+              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="start-time">ساعت شروع</Label>
-                <Input
-                  id="start-time"
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  required
-                />
+                <Input id="start-time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="end-time">ساعت پایان</Label>
-                <Input
-                  id="end-time"
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  required
-                />
+                <Input id="end-time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="notes">یادداشت‌ها (اختیاری)</Label>
-              <Textarea
-                id="notes"
-                placeholder="یادداشت‌های اضافی..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="min-h-[80px]"
-              />
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="notes">یادداشت\u200cها (اختیاری)</Label>
+              <Textarea id="notes" placeholder="یادداشت\u200cهای اضافی..." value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[100px]" />
             </div>
           </CardContent>
         </Card>
 
         <Button type="submit" size="lg" disabled={isSaving} className="w-full">
-          {isSaving ? (
-            <Loader2 className="h-4 w-4 animate-spin ml-1" />
-          ) : null}
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : null}
           بروزرسانی جلسه
         </Button>
       </form>

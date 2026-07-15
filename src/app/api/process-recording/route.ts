@@ -13,6 +13,8 @@ export async function POST(request: Request) {
     const formData = await request.formData()
     const audioFile = formData.get("audio") as File | null
     const meetingId = formData.get("meetingId") as string | null
+    const title = formData.get("title") as string | null
+    const durationSeconds = parseInt(formData.get("durationSeconds") as string || "0")
 
     if (!audioFile || !meetingId) {
       return NextResponse.json(
@@ -51,10 +53,12 @@ export async function POST(request: Request) {
       .from("summaries")
       .insert({
         meeting_id: meetingId,
+        title: title || "",
         transcript,
         summary: summaryResult.summary,
         key_points: summaryResult.keyPoints,
         action_items: summaryResult.actionItems,
+        duration_seconds: durationSeconds,
       })
       .select()
       .single()
@@ -66,10 +70,12 @@ export async function POST(request: Request) {
     return NextResponse.json({
       id: summaryData.id,
       meetingId: summaryData.meeting_id,
+      title: summaryData.title || "",
       transcript: summaryData.transcript || "",
       summary: summaryData.summary || "",
       keyPoints: summaryData.key_points || [],
       actionItems: summaryData.action_items || [],
+      durationSeconds: summaryData.duration_seconds || 0,
       createdAt: summaryData.created_at,
     })
   } catch (error) {

@@ -24,14 +24,24 @@ export async function GET(
       return NextResponse.json({ error: "Meeting not found" }, { status: 404 })
     }
 
-    // Fetch latest summary
-    const { data: summary } = await db
+    // Fetch ALL summaries for this meeting
+    const { data: summaryData } = await db
       .from("summaries")
       .select("*")
       .eq("meeting_id", id)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .single()
+
+    const summaries = (summaryData || []).map((s) => ({
+      id: s.id,
+      meetingId: s.meeting_id,
+      title: s.title || "",
+      transcript: s.transcript || "",
+      summary: s.summary || "",
+      keyPoints: s.key_points || [],
+      actionItems: s.action_items || [],
+      durationSeconds: s.duration_seconds || 0,
+      createdAt: s.created_at,
+    }))
 
     return NextResponse.json({
       meeting: {
@@ -45,17 +55,7 @@ export async function GET(
         source: meeting.source,
         createdAt: meeting.created_at,
       },
-      summary: summary
-        ? {
-            id: summary.id,
-            meetingId: summary.meeting_id,
-            transcript: summary.transcript || "",
-            summary: summary.summary || "",
-            keyPoints: summary.key_points || [],
-            actionItems: summary.action_items || [],
-            createdAt: summary.created_at,
-          }
-        : null,
+      summaries,
     })
   } catch {
     return NextResponse.json(
@@ -80,17 +80,6 @@ export async function PATCH(
     const { title, location, notes, startAt, endAt } = body
 
     const db = getDb()
-    const { data: meeting, error: fetchError } = await db
-      .from("meetings")
-      .select("id")
-      .eq("id", id)
-      .eq("user_id", userId)
-      .single()
-
-    if (fetchError || !meeting) {
-      return NextResponse.json({ error: "Meeting not found" }, { status: 404 })
-    }
-
     const updateData: Record<string, unknown> = {}
     if (title !== undefined) updateData.title = title
     if (location !== undefined) updateData.location = location

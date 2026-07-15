@@ -19,10 +19,12 @@ export interface Meeting {
 export interface MeetingSummary {
   id: string
   meetingId: string
+  title: string
   transcript: string
   summary: string
   keyPoints: string[]
   actionItems: string[]
+  durationSeconds: number
   createdAt: string
 }
 

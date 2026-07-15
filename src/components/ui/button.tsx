@@ -3,31 +3,31 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-bold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer select-none active:scale-[0.99] active:opacity-90",
+  "inline-flex items-center justify-center gap-2.5 whitespace-nowrap rounded-full text-[15px] font-medium transition-all duration-500 ease-out focus-visible:outline-none focus-visible:ring-1.5 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer select-none",
   {
     variants: {
       variant: {
         default:
-          "bg-accent text-white hover:bg-accent-dark",
+          "bg-accent text-background hover:bg-accent-dark hover:shadow-lg hover:shadow-accent/10 active:scale-[0.98]",
         destructive:
-          "bg-danger text-white hover:bg-danger/90",
+          "bg-danger/10 text-danger border border-danger/10 hover:bg-danger/15 active:scale-[0.98]",
         "destructive-outline":
-          "bg-danger-bg text-danger border border-danger-border hover:bg-danger/10",
+          "bg-danger-bg text-danger border border-danger-border/50 hover:bg-danger/10",
         outline:
-          "border border-border bg-background text-text-primary hover:bg-surface",
+          "border border-border bg-transparent text-text-secondary hover:bg-surface-elevated hover:text-text-primary hover:border-border active:scale-[0.98]",
         secondary:
-          "bg-background border border-border text-text-primary hover:bg-surface",
+          "bg-surface-elevated/50 border border-border text-text-secondary hover:bg-surface-elevated hover:text-text-primary active:scale-[0.98]",
         ghost:
-          "text-text-secondary hover:bg-background-accent hover:text-text-primary",
+          "text-text-secondary hover:bg-surface-elevated/50 hover:text-text-primary",
         link: "text-accent underline-offset-4 hover:underline",
         success:
-          "bg-success text-white hover:bg-success/90",
+          "bg-success/10 text-success border border-success/10 hover:bg-success/15 active:scale-[0.98]",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-lg px-3 text-xs",
-        lg: "h-12 px-6 text-sm",
-        xl: "h-[50px] rounded-xl px-8 text-[15px]",
+        default: "h-11 px-6 py-2.5",
+        sm: "h-9 rounded-full px-4 text-[13px]",
+        lg: "h-13 px-8 text-[15px]",
+        xl: "h-14 rounded-full px-10 text-[15px]",
         icon: "h-10 w-10",
       },
     },

@@ -3,21 +3,20 @@
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-import { Loader2 } from "lucide-react"
 
 export default function SettingsPage() {
   const [autoRecord, setAutoRecord] = React.useState(false)
   const [reminderMinutes, setReminderMinutes] = React.useState(10)
 
   return (
-    <div className="flex flex-col gap-5 pb-4">
+    <div className="flex flex-col gap-8 pb-4">
       {/* Hero */}
-      <div className="rounded-[20px] bg-surface border border-border p-5 sm:p-6 flex flex-col gap-2">
-        <p className="text-[13px] font-bold text-accent">تنظیمات</p>
-        <h1 className="text-[26px] sm:text-[30px] font-bold text-text-primary leading-10">
+      <div className="flex flex-col gap-3">
+        <p className="text-[12px] font-medium text-accent tracking-[0.15em] uppercase">تنظیمات</p>
+        <h1 className="text-[32px] sm:text-[38px] font-semibold text-text-primary leading-tight tracking-tight">
           تنظیمات
         </h1>
-        <p className="text-[14px] text-text-secondary leading-5">
+        <p className="text-[15px] text-text-muted leading-relaxed">
           تنظیمات برنامه را مدیریت کنید.
         </p>
       </div>
@@ -25,18 +24,18 @@ export default function SettingsPage() {
       {/* Reminder */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-[15px]">یادآوری جلسه</CardTitle>
+          <CardTitle className="text-[16px]">یادآوری جلسه</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2.5 flex-wrap">
             {[5, 10, 15, 30, 60].map((r) => (
               <button
                 key={r}
                 onClick={() => setReminderMinutes(r)}
-                className={`px-4 py-2.5 rounded-xl text-[13px] font-bold border transition-all duration-200 cursor-pointer ${
+                className={`px-5 py-2.5 rounded-full text-[13px] font-medium border transition-all duration-500 cursor-pointer ${
                   reminderMinutes === r
-                    ? "bg-accent text-white border-accent"
-                    : "bg-surface text-text-secondary border-border hover:bg-background-accent"
+                    ? "bg-accent text-background border-accent shadow-md shadow-accent/10"
+                    : "bg-surface-elevated/30 text-text-muted border-border/30 hover:bg-surface-elevated/50 hover:text-text-secondary"
                 }`}
               >
                 {r} دقیقه قبل
@@ -48,10 +47,10 @@ export default function SettingsPage() {
 
       {/* Auto record */}
       <Card>
-        <CardContent className="flex items-center justify-between py-4">
+        <CardContent className="flex items-center justify-between py-2">
           <div>
-            <p className="text-[14px] font-bold text-text-primary">ضبط خودکار</p>
-            <p className="text-[12px] text-text-secondary mt-0.5">
+            <p className="text-[15px] font-medium text-text-primary">ضبط خودکار</p>
+            <p className="text-[13px] text-text-muted mt-1">
               ضبط خودکار جلسات را فعال کنید.
             </p>
           </div>
@@ -63,9 +62,9 @@ export default function SettingsPage() {
       </Card>
 
       {/* Info */}
-      <div className="rounded-[14px] bg-background-accent border border-border p-4">
-        <p className="text-[13px] text-text-secondary leading-5">
-          تنظیمات شما در مرورگر ذخیره می‌شوند. برای بروزرسانی تنظیمات حساب کاربری، با مدیر تماس بگیرید.
+      <div className="rounded-[20px] bg-surface-elevated/20 border border-border/20 p-5">
+        <p className="text-[13px] text-text-muted/70 leading-relaxed">
+          تنظیمات شما در مرورگر ذخیره می\u200cشوند. برای بروزرسانی تنظیمات حساب کاربری، با مدیر تماس بگیرید.
         </p>
       </div>
     </div>

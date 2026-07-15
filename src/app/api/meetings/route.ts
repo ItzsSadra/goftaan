@@ -42,34 +42,35 @@ export async function GET() {
       .filter((m) => new Date(m.end_at) < new Date(now))
       .map(mapMeeting)
 
-    // Fetch summaries for past meetings
-    const pastIds = past.map((m) => m.id)
-    const summaries: Record<string, unknown> = {}
+    // Fetch all summaries for all meetings
+    const allIds = [...upcoming, ...past].map((m) => m.id)
+    const summaryMap: Record<string, unknown[]> = {}
 
-    if (pastIds.length > 0) {
+    if (allIds.length > 0) {
       const { data: summaryData } = await db
         .from("summaries")
         .select("*")
-        .in("meeting_id", pastIds)
+        .in("meeting_id", allIds)
         .order("created_at", { ascending: false })
 
       for (const s of summaryData || []) {
         const mid = s.meeting_id as string
-        if (!summaries[mid]) {
-          summaries[mid] = {
-            id: s.id,
-            meetingId: mid,
-            transcript: s.transcript || "",
-            summary: s.summary || "",
-            keyPoints: s.key_points || [],
-            actionItems: s.action_items || [],
-            createdAt: s.created_at,
-          }
-        }
+        if (!summaryMap[mid]) summaryMap[mid] = []
+        summaryMap[mid].push({
+          id: s.id,
+          meetingId: mid,
+          title: s.title || "",
+          transcript: s.transcript || "",
+          summary: s.summary || "",
+          keyPoints: s.key_points || [],
+          actionItems: s.action_items || [],
+          durationSeconds: s.duration_seconds || 0,
+          createdAt: s.created_at,
+        })
       }
     }
 
-    return NextResponse.json({ upcoming, past, summaries })
+    return NextResponse.json({ upcoming, past, summaries: summaryMap })
   } catch {
     return NextResponse.json(
       { error: "Internal server error" },

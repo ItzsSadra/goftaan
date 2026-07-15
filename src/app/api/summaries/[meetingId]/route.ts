@@ -30,29 +30,30 @@ export async function GET(
       )
     }
 
+    // Return ALL summaries for this meeting
     const { data, error } = await db
       .from("summaries")
       .select("*")
       .eq("meeting_id", meetingId)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .single()
 
-    if (error || !data) {
-      return NextResponse.json({ summary: null })
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    return NextResponse.json({
-      summary: {
-        id: data.id,
-        meetingId: data.meeting_id,
-        transcript: data.transcript || "",
-        summary: data.summary || "",
-        keyPoints: data.key_points || [],
-        actionItems: data.action_items || [],
-        createdAt: data.created_at,
-      },
-    })
+    const summaries = (data || []).map((s) => ({
+      id: s.id,
+      meetingId: s.meeting_id,
+      title: s.title || "",
+      transcript: s.transcript || "",
+      summary: s.summary || "",
+      keyPoints: s.key_points || [],
+      actionItems: s.action_items || [],
+      durationSeconds: s.duration_seconds || 0,
+      createdAt: s.created_at,
+    }))
+
+    return NextResponse.json({ summaries })
   } catch {
     return NextResponse.json(
       { error: "Internal server error" },

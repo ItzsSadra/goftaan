@@ -46,7 +46,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast, dismiss }}>
       {children}
-      <div className="fixed bottom-24 lg:bottom-6 left-4 right-4 lg:left-auto lg:right-6 z-[100] flex flex-col gap-2.5 max-w-sm lg:max-w-md pointer-events-none">
+      <div className="fixed bottom-28 lg:bottom-8 left-4 right-4 lg:left-auto lg:right-8 z-[100] flex flex-col gap-3 max-w-sm lg:max-w-md pointer-events-none">
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />
         ))}
@@ -71,23 +71,24 @@ function ToastItem({
   return (
     <div
       className={cn(
-        "pointer-events-auto flex items-start gap-3 rounded-[16px] border border-border bg-surface p-4 shadow-lg",
-        toast.variant === "destructive" && "border-danger-border bg-danger-bg",
-        toast.variant === "success" && "border-success-border bg-success-bg"
+        "pointer-events-auto flex items-start gap-3.5 rounded-[20px] border border-border/30 bg-surface/95 backdrop-blur-xl p-4 shadow-2xl shadow-black/20",
+        toast.variant === "destructive" && "border-danger-border/30 bg-danger-bg/80",
+        toast.variant === "success" && "border-success-border/30 bg-success-bg/80"
       )}
+      style={{ animation: "slide-up 0.6s ease-out" }}
     >
       <div className="mt-0.5 shrink-0">{icons[toast.variant || "default"]}</div>
       <div className="flex-1 min-w-0">
         {toast.title && (
-          <p className="text-sm font-bold text-text-primary">{toast.title}</p>
+          <p className="text-[14px] font-medium text-text-primary">{toast.title}</p>
         )}
         {toast.description && (
-          <p className="text-sm text-text-secondary mt-0.5 leading-relaxed">{toast.description}</p>
+          <p className="text-[13px] text-text-secondary mt-1 leading-relaxed">{toast.description}</p>
         )}
       </div>
       <button
         onClick={onDismiss}
-        className="text-text-muted hover:text-text-primary transition-colors cursor-pointer shrink-0 mt-0.5"
+        className="text-text-muted hover:text-text-primary transition-colors duration-300 cursor-pointer shrink-0 mt-0.5"
       >
         <X className="h-3.5 w-3.5" />
       </button>

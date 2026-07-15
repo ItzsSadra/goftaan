@@ -6,13 +6,13 @@ import type { Meeting, MeetingSummary } from "@/types"
 interface MeetingsResponse {
   upcoming: Meeting[]
   past: Meeting[]
-  summaries: Record<string, MeetingSummary>
+  summaries: Record<string, MeetingSummary[]>
 }
 
 interface UseMeetingsReturn {
   upcoming: Meeting[]
   past: Meeting[]
-  summaries: Record<string, MeetingSummary>
+  summaries: Record<string, MeetingSummary[]>
   isLoading: boolean
   error: string | null
   refresh: () => Promise<void>
@@ -22,7 +22,7 @@ interface UseMeetingsReturn {
 export function useMeetings(): UseMeetingsReturn {
   const [upcoming, setUpcoming] = useState<Meeting[]>([])
   const [past, setPast] = useState<Meeting[]>([])
-  const [summaries, setSummaries] = useState<Record<string, MeetingSummary>>({})
+  const [summaries, setSummaries] = useState<Record<string, MeetingSummary[]>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 

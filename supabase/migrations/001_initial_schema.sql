@@ -37,15 +37,17 @@ CREATE TABLE meetings (
 );
 
 -- ============================================
--- SUMMARIES TABLE
+-- SUMMARIES TABLE (one per recording)
 -- ============================================
 CREATE TABLE summaries (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   meeting_id UUID NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+  title TEXT DEFAULT '',
   transcript TEXT DEFAULT '',
   summary TEXT DEFAULT '',
   key_points TEXT[] DEFAULT '{}',
   action_items TEXT[] DEFAULT '{}',
+  duration_seconds INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -57,6 +59,7 @@ CREATE INDEX idx_meetings_user_id ON meetings(user_id);
 CREATE INDEX idx_meetings_start_at ON meetings(start_at);
 CREATE INDEX idx_meetings_user_start ON meetings(user_id, start_at);
 CREATE INDEX idx_summaries_meeting_id ON summaries(meeting_id);
+CREATE INDEX idx_summaries_created_at ON summaries(created_at);
 
 -- ============================================
 -- ROW LEVEL SECURITY (DISABLED)
